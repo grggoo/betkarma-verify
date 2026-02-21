@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>BetKarma - Provably Fair Anchors</title>
+    <style>
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+        margin: 0;
+        background: #0b0f17;
+        color: #e8eefc;
+      }
+      a {
+        color: #9fd3ff;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      header {
+        padding: 28px 18px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.02);
+      }
+      main {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 18px;
+      }
+      .grid {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      }
+      .card {
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 14px;
+        padding: 14px;
+        background: rgba(255, 255, 255, 0.02);
+      }
+      .muted {
+        color: rgba(232, 238, 252, 0.7);
+      }
+      code {
+        background: rgba(255, 255, 255, 0.06);
+        padding: 2px 6px;
+        border-radius: 6px;
+      }
+      .ok {
+        color: #7cffb2;
+      }
+      .bad {
+        color: #ff7ca3;
+      }
+      .row {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .pill {
+        font-size: 12px;
+        padding: 3px 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      textarea {
+        width: 100%;
+        min-height: 110px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(0, 0, 0, 0.2);
+        color: #e8eefc;
+        padding: 10px;
+      }
+      button {
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.06);
+        color: #e8eefc;
+        padding: 9px 12px;
+        border-radius: 10px;
+        cursor: pointer;
+      }
+      button:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+      pre {
+        white-space: pre-wrap;
+        word-break: break-word;
+        background: rgba(0, 0, 0, 0.25);
+        padding: 10px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div style="max-width: 980px; margin: 0 auto;">
+        <div style="font-size: 18px; font-weight: 700;">BetKarma - Provably Fair Anchors</div>
+        <div class="muted" style="margin-top: 6px;">
+          Public append-only log of seedset commits/reveals and rules snapshots.
+        </div>
+        <div class="muted" style="margin-top: 10px;">
+          Structure:
+          <code>anchors/&lt;gameId&gt;/{seedsets,reveals}.jsonl</code>,
+          <code>rules/&lt;rulesVersion&gt;.json</code>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <h2 style="margin: 14px 0 10px;">Anchors</h2>
+      <div id="games" class="grid"></div>
+
+      <h2 style="margin: 22px 0 10px;">How to verify</h2>
+      <ol class="muted">
+        <li>Get a receipt from the app or verify endpoint (gameId, seedSetId, serverSeedHash, rulesVersion, rngVersion).</li>
+        <li>Open <code>anchors/&lt;gameId&gt;/seedsets.jsonl</code> and find the line with this seedSetId and serverSeedHashHex.</li>
+        <li>When the seedset is revealed, <code>reveals.jsonl</code> will include serverSeedHex. Verify: <code>sha256(serverSeedHex) == serverSeedHashHex</code>.</li>
+        <li>Recompute the outcome using the public rules and receipts.</li>
+      </ol>
+
+      <h2 style="margin: 22px 0 10px;">Quick reveal hash check (sha256)</h2>
+      <div class="muted" style="margin-bottom: 8px;">
+        Paste one JSON line from <code>reveals.jsonl</code> and click Verify.
+      </div>
+      <textarea
+        id="revealLine"
+        placeholder='{"ts":"...","gameId":"coinflip38","seedSetId":"...","serverSeedHex":"...","serverSeedHashHex":"..."}'
+      ></textarea>
+      <div style="margin-top: 10px;">
+        <button id="btnVerify">Verify reveal hash</button>
+      </div>
+      <pre id="verifyOut" class="muted" style="margin-top: 10px;"></pre>
+    </main>
+
+    <script>
+      const GAMES = [
+        { id: "coinflip38", title: "coinflip38" },
+        { id: "karmaladder", title: "karmaladder" },
+        { id: "karmapoker", title: "karmapoker" },
+      ];
+
+      function el(tag, attrs = {}, children = []) {
+        const n = document.createElement(tag);
+        Object.entries(attrs).forEach(([k, v]) => {
+          if (k === "class") n.className = v;
+          else if (k === "html") n.innerHTML = v;
+          else n.setAttribute(k, v);
+        });
+        children.forEach((c) => n.appendChild(typeof c === "string" ? document.createTextNode(c) : c));
+        return n;
+      }
+
+      async function fetchJsonl(url) {
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
+        const txt = await res.text();
+        const lines = txt
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean);
+        return lines.map((l) => JSON.parse(l));
+      }
+
+      function shortHex(s, n = 10) {
+        if (!s || typeof s !== "string") return "-";
+        return s.length <= n * 2 + 3 ? s : `${s.slice(0, n)}...${s.slice(-n)}`;
+      }
+
+      async function renderGames() {
+        const host = document.getElementById("games");
+        host.innerHTML = "";
+
+        for (const g of GAMES) {
+          const seedsetsUrl = `anchors/${g.id}/seedsets.jsonl`;
+          const revealsUrl = `anchors/${g.id}/reveals.jsonl`;
+
+          const card = el("div", { class: "card" }, [
+            el("div", { class: "row" }, [
+              el("div", { html: `<b>${g.title}</b>` }),
+              el("div", { class: "pill" }, ["anchors"]),
+            ]),
+            el("div", { class: "muted", style: "margin-top:8px;" }, [
+              el("div", {}, [
+                el("a", { href: seedsetsUrl }, ["seedsets.jsonl"]),
+                document.createTextNode(" | "),
+                el("a", { href: revealsUrl }, ["reveals.jsonl"]),
+              ]),
+            ]),
+            el("div", { class: "muted", style: "margin-top:10px;" }, ["Loading..."]),
+          ]);
+
+          host.appendChild(card);
+
+          try {
+            const [seedsets, reveals] = await Promise.all([fetchJsonl(seedsetsUrl), fetchJsonl(revealsUrl)]);
+
+            const lastCommit = seedsets[seedsets.length - 1] || null;
+            const revealMap = new Map(reveals.map((r) => [r.seedSetId, r]));
+            const lastCommitReveal = lastCommit ? revealMap.get(lastCommit.seedSetId) : null;
+
+            const lines = [];
+            lines.push(`commits: ${seedsets.length}, reveals: ${reveals.length}`);
+            if (lastCommit) {
+              lines.push(`latest seedSetId: ${lastCommit.seedSetId}`);
+              lines.push(`latest hash: ${shortHex(lastCommit.serverSeedHashHex)}`);
+              lines.push(`latest ts: ${lastCommit.ts}`);
+              lines.push(`revealed: ${lastCommitReveal ? "YES" : "NO"}`);
+            } else {
+              lines.push("No commits yet for this game.");
+            }
+
+            card.lastChild.textContent = lines.join("\n");
+          } catch (e) {
+            card.lastChild.textContent = `Error loading anchors: ${e && e.message ? e.message : e}`;
+          }
+        }
+      }
+
+      function hexToBytes(hex) {
+        const clean = hex.trim().toLowerCase();
+        if (!/^[0-9a-f]*$/.test(clean) || clean.length % 2 !== 0) {
+          throw new Error("serverSeedHex must be even-length hex");
+        }
+        const out = new Uint8Array(clean.length / 2);
+        for (let i = 0; i < out.length; i += 1) {
+          out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
+        }
+        return out;
+      }
+      function bytesToHex(bytes) {
+        return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+      }
+      async function sha256HexOfHexBytes(seedHex) {
+        const bytes = hexToBytes(seedHex);
+        const buf = await crypto.subtle.digest("SHA-256", bytes);
+        return bytesToHex(new Uint8Array(buf));
+      }
+
+      document.getElementById("btnVerify").addEventListener("click", async () => {
+        const out = document.getElementById("verifyOut");
+        out.textContent = "";
+        try {
+          const line = JSON.parse(document.getElementById("revealLine").value);
+          const computed = await sha256HexOfHexBytes(line.serverSeedHex);
+          const ok = computed.toLowerCase() === String(line.serverSeedHashHex || "").toLowerCase();
+          out.textContent =
+            `computed sha256(serverSeedHex): ${computed}\n` +
+            `anchored serverSeedHashHex:     ${line.serverSeedHashHex}\n` +
+            `result: ${ok ? "OK" : "MISMATCH"}`;
+          out.className = ok ? "ok" : "bad";
+        } catch (e) {
+          out.className = "bad";
+          out.textContent = `Error: ${e && e.message ? e.message : e}`;
+        }
+      });
+
+      renderGames();
+    </script>
+  </body>
+</html>
