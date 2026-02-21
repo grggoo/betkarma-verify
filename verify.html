@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>BetKarma - Receipt Verifier</title>
+    <style>
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+        margin: 24px;
+        line-height: 1.45;
+      }
+      textarea {
+        width: 100%;
+        min-height: 220px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 13px;
+        padding: 12px;
+        border-radius: 10px;
+        border: 1px solid #ccc;
+      }
+      button {
+        padding: 10px 14px;
+        border-radius: 10px;
+        border: 1px solid #ccc;
+        background: #fff;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #f6f8fa;
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin: 12px 0;
+      }
+      .pill {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid #ddd;
+        background: #fafafa;
+        font-size: 12px;
+      }
+      pre {
+        background: #0b1021;
+        color: #d7e0ff;
+        padding: 14px;
+        border-radius: 12px;
+        overflow: auto;
+      }
+      a {
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      .ok {
+        color: #0a7a0a;
+      }
+      .bad {
+        color: #b00020;
+      }
+      .warn {
+        color: #a36a00;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>BetKarma - Receipt Verifier</h1>
+    <p>
+      Paste a receipt JSON and verify it against public anchors. This page checks commit and reveal
+      integrity. It fully recomputes coinflip38 outcomes.
+    </p>
+
+    <div class="row">
+      <button id="btnVerify">Verify receipt</button>
+      <span class="pill"><a href="./index.html">back to index</a></span>
+    </div>
+
+    <textarea id="inpReceipt" spellcheck="false" placeholder="Paste receipt JSON here..."></textarea>
+
+    <h2>Result</h2>
+    <pre id="out"></pre>
+
+    <script>
+      const out = document.getElementById("out");
+      const input = document.getElementById("inpReceipt");
+
+      function log(line = "") {
+        out.textContent += `${line}\n`;
+      }
+
+      function resetOut() {
+        out.textContent = "";
+      }
+
+      function normalizeHex(x) {
+        return String(x ?? "").trim().toLowerCase().replace(/^0x/, "");
+      }
+
+      function isHex(s) {
+        return /^[0-9a-f]+$/i.test(String(s ?? ""));
+      }
+
+      function hexToBytes(hex) {
+        const clean = normalizeHex(hex);
+        if (clean.length % 2 !== 0) throw new Error("hex length must be even");
+        if (!isHex(clean)) throw new Error("invalid hex string");
+        const out = new Uint8Array(clean.length / 2);
+        for (let i = 0; i < out.length; i += 1) {
+          out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
+        }
+        return out;
+      }
+
+      function bytesToHex(bytes) {
+        return Array.from(bytes)
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+      }
+
+      function toBigIntSats(v, fieldName) {
+        if (typeof v === "bigint") return v;
+        if (typeof v === "number") {
+          if (!Number.isInteger(v)) throw new Error(`${fieldName}: expected integer`);
+          return BigInt(v);
+        }
+        if (typeof v === "string") {
+          if (!/^-?\d+$/.test(v)) throw new Error(`${fieldName}: expected integer string`);
+          return BigInt(v);
+        }
+        throw new Error(`${fieldName}: unsupported type`);
+      }
+
+      function toInt(v, fieldName) {
+        const n = typeof v === "number" ? v : Number(v);
+        if (!Number.isInteger(n)) throw new Error(`${fieldName}: expected integer`);
+        return n;
+      }
+
+      async function sha256Hex(bytes) {
+        const digest = await crypto.subtle.digest("SHA-256", bytes);
+        return bytesToHex(new Uint8Array(digest));
+      }
+
+      async function hmacSha256(keyBytes, msg) {
+        const key = await crypto.subtle.importKey(
+          "raw",
+          keyBytes,
+          { name: "HMAC", hash: "SHA-256" },
+          false,
+          ["sign"]
+        );
+        const data = new TextEncoder().encode(msg);
+        const sig = await crypto.subtle.sign("HMAC", key, data);
+        return new Uint8Array(sig);
+      }
+
+      function canonicalRngMessage(req, drawIndexOverride) {
+        const draw = drawIndexOverride ?? req.drawIndex;
+        const stream = encodeURIComponent(String(req.stream));
+        const eventId = encodeURIComponent(String(req.eventId));
+        const clientSeed = encodeURIComponent(String(req.clientSeed));
+        return [
+          "betkarma",
+          `rng=${req.rngVersion}`,
+          `game=${req.gameId}`,
+          `stream=${stream}`,
+          `event=${eventId}`,
+          `client=${clientSeed}`,
+          `nonce=${String(req.nonce)}`,
+          `draw=${String(draw)}`,
+        ].join("|");
+      }
+
+      class PfByteStream {
+        constructor(serverSeedHex, req) {
+          this.req = req;
+          this.drawIndex = toInt(req.drawIndex, "drawIndex");
+          this.keyBytes = hexToBytes(serverSeedHex);
+          this.buf = new Uint8Array(0);
+          this.off = 0;
+        }
+
+        async refill() {
+          const msg = canonicalRngMessage(this.req, this.drawIndex);
+          const sig = await hmacSha256(this.keyBytes, msg);
+          this.buf = sig;
+          this.off = 0;
+          this.drawIndex += 1;
+        }
+
+        async nextByte() {
+          if (this.off >= this.buf.length) {
+            await this.refill();
+          }
+          return this.buf[this.off++];
+        }
+      }
+
+      async function computeCoinflip38(receipt, serverSeedHex) {
+        const req = {
+          rngVersion: receipt.rngVersion,
+          gameId: receipt.gameId,
+          stream: receipt.stream,
+          eventId: receipt.eventId,
+          clientSeed: receipt.clientSeed,
+          nonce: receipt.nonce,
+          drawIndex: receipt.drawIndex,
+        };
+        const bs = new PfByteStream(serverSeedHex, req);
+
+        const limit = 228;
+        const slots = 38;
+        let b = 0;
+        for (;;) {
+          b = await bs.nextByte();
+          if (b < limit) break;
+        }
+        const slot = b % slots;
+        let outcome = "TAILS";
+        if (slot === 0 || slot === 37) outcome = "EDGE";
+        else if (slot % 2 === 0) outcome = "HEADS";
+
+        const choice = receipt?.params?.choice;
+        const stakeSats = toBigIntSats(receipt?.params?.stakeSats, "params.stakeSats");
+        const mult = outcome === "EDGE" ? 180000n : 20000n;
+        const payoutSats = choice === outcome ? (stakeSats * mult) / 10000n : 0n;
+
+        return { slot, outcome, multiplierBps: Number(mult), payoutSats };
+      }
+
+      async function fetchJsonl(path) {
+        const r = await fetch(path, { cache: "no-store" });
+        if (!r.ok) throw new Error(`Fetch failed: ${path} (${r.status})`);
+        const txt = await r.text();
+        const lines = txt
+          .split("\n")
+          .map((x) => x.trim())
+          .filter(Boolean);
+        return lines.map((line, i) => {
+          try {
+            return JSON.parse(line);
+          } catch (e) {
+            throw new Error(`Invalid JSONL at ${path}:${i + 1}`);
+          }
+        });
+      }
+
+      function assert(cond, msg) {
+        if (!cond) throw new Error(msg);
+      }
+
+      function eqHex(a, b) {
+        return normalizeHex(a) === normalizeHex(b);
+      }
+
+      async function verifyReceipt(receipt) {
+        const required = [
+          "gameId",
+          "rulesVersion",
+          "rngVersion",
+          "eventId",
+          "seedSetId",
+          "serverSeedHash",
+          "stream",
+          "clientSeed",
+          "nonce",
+          "drawIndex",
+          "params",
+          "result",
+        ];
+        for (const k of required) assert(receipt?.[k] !== undefined, `Missing field: ${k}`);
+
+        const gameId = receipt.gameId;
+        const seedSetId = receipt.seedSetId;
+
+        log(`Game: ${gameId}`);
+        log(`SeedSetId: ${seedSetId}`);
+        log("");
+
+        const commitsPath = `./anchors/${gameId}/seedsets.jsonl`;
+        const commits = await fetchJsonl(commitsPath);
+        const commit = commits.find((x) => String(x.seedSetId) === String(seedSetId));
+        assert(commit, `Commit not found in ${commitsPath}`);
+
+        log(`Commit: OK (ts=${commit.ts})`);
+        assert(eqHex(commit.serverSeedHashHex, receipt.serverSeedHash), "serverSeedHash mismatch");
+        assert(String(commit.rngVersion) === String(receipt.rngVersion), "rngVersion mismatch");
+        assert(String(commit.rulesVersion) === String(receipt.rulesVersion), "rulesVersion mismatch");
+        log("Commit matches receipt: OK");
+        log("");
+
+        const revealsPath = `./anchors/${gameId}/reveals.jsonl`;
+        const reveals = await fetchJsonl(revealsPath);
+        const reveal = reveals.find((x) => String(x.seedSetId) === String(seedSetId));
+
+        if (!reveal) {
+          log("Reveal: NOT FOUND (seedset not revealed yet)");
+          log("You can verify commit existence, but not recompute outcome.");
+          return;
+        }
+
+        log(`Reveal: OK (ts=${reveal.ts})`);
+        assert(eqHex(reveal.serverSeedHashHex, commit.serverSeedHashHex), "reveal hash mismatch vs commit");
+        const computed = await sha256Hex(hexToBytes(reveal.serverSeedHex));
+        assert(eqHex(computed, commit.serverSeedHashHex), "sha256(serverSeedHex) mismatch");
+        log("sha256(serverSeedHex) == serverSeedHash: OK");
+        log("");
+
+        if (gameId === "coinflip38") {
+          const expected = await computeCoinflip38(receipt, reveal.serverSeedHex);
+          const r = receipt.result;
+          const payoutSatsReceipt = toBigIntSats(r.payoutSats, "result.payoutSats");
+
+          assert(toInt(r.slot, "result.slot") === expected.slot, "slot mismatch");
+          assert(String(r.outcome) === expected.outcome, "outcome mismatch");
+          assert(toInt(r.multiplierBps, "result.multiplierBps") === expected.multiplierBps, "multiplier mismatch");
+          assert(payoutSatsReceipt === expected.payoutSats, "payout mismatch");
+
+          log("coinflip38 outcome recompute: OK");
+          log(
+            `Computed slot=${expected.slot}, outcome=${expected.outcome}, payoutSats=${expected.payoutSats.toString()}`
+          );
+          return;
+        }
+
+        log(`Game math verification not implemented yet for ${gameId}.`);
+        log("Commit and reveal checks are OK.");
+      }
+
+      document.getElementById("btnVerify").addEventListener("click", async () => {
+        resetOut();
+        try {
+          const txt = input.value.trim();
+          assert(txt.length > 0, "Paste a receipt JSON first.");
+          const receipt = JSON.parse(txt);
+          await verifyReceipt(receipt);
+        } catch (e) {
+          log("");
+          log("ERROR:");
+          log(String(e && e.message ? e.message : e));
+        }
+      });
+    </script>
+  </body>
+</html>
