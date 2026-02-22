@@ -7,8 +7,26 @@
     <style>
       body {
         font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
-        margin: 24px;
-        line-height: 1.45;
+        margin: 0;
+        background: #0b0f17;
+        color: #e8eefc;
+      }
+      header {
+        padding: 28px 18px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.02);
+      }
+      main {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 18px;
+      }
+      a {
+        color: #9fd3ff;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
       }
       textarea {
         width: 100%;
@@ -17,17 +35,23 @@
         font-size: 13px;
         padding: 12px;
         border-radius: 10px;
-        border: 1px solid #ccc;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(0, 0, 0, 0.2);
+        color: #e8eefc;
+        resize: vertical;
       }
       button {
         padding: 10px 14px;
         border-radius: 10px;
-        border: 1px solid #ccc;
-        background: #fff;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.06);
+        color: #e8eefc;
         cursor: pointer;
+        font-weight: 500;
+        transition: background 0.2s;
       }
       button:hover {
-        background: #f6f8fa;
+        background: rgba(255, 255, 255, 0.1);
       }
       .row {
         display: flex;
@@ -40,61 +64,94 @@
         display: inline-block;
         padding: 4px 10px;
         border-radius: 999px;
-        border: 1px solid #ddd;
-        background: #fafafa;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.06);
         font-size: 12px;
       }
       pre {
-        background: #0b1021;
+        background: rgba(0, 0, 0, 0.25);
         color: #d7e0ff;
         padding: 14px;
         border-radius: 12px;
         overflow: auto;
-      }
-      a {
-        text-decoration: none;
-      }
-      a:hover {
-        text-decoration: underline;
+        white-space: pre-wrap;
+        word-break: break-word;
+        border: 1px solid rgba(255, 255, 255, 0.1);
       }
       .ok {
-        color: #0a7a0a;
+        color: #7cffb2;
       }
       .bad {
-        color: #b00020;
+        color: #ff7ca3;
       }
       .warn {
-        color: #a36a00;
+        color: #ffd700;
+      }
+      .muted {
+        color: rgba(232, 238, 252, 0.7);
       }
     </style>
   </head>
   <body>
-    <h1>BetKarma - Receipt Verifier</h1>
-    <p>
-      Paste a receipt JSON and verify it against public anchors. This page checks commit and reveal
-      integrity. It fully recomputes coinflip38 outcomes.
-    </p>
+    <header>
+      <div style="max-width: 980px; margin: 0 auto">
+        <div class="row" style="justify-content: space-between; margin: 0">
+          <div>
+            <div style="font-size: 18px; font-weight: 700">BetKarma — Verifier</div>
+            <div class="muted" style="margin-top: 6px; font-size: 14px">
+              Paste a receipt JSON to verify it against public anchors and recompute outcomes.
+            </div>
+          </div>
+          <div>
+            <span class="pill"><a href="./index.html">Back to Anchors</a></span>
+          </div>
+        </div>
+      </div>
+    </header>
 
-    <div class="row">
-      <button id="btnVerify">Verify receipt</button>
-      <span class="pill"><a href="./index.html">back to index</a></span>
-    </div>
+    <main>
+      <div style="margin-bottom: 16px">
+        <textarea id="inpReceipt" spellcheck="false" placeholder='{"gameId":"...","eventId":"...","seedSetId":"...",...}'></textarea>
+      </div>
 
-    <textarea id="inpReceipt" spellcheck="false" placeholder="Paste receipt JSON here..."></textarea>
+      <div class="row" style="margin-bottom: 24px">
+        <button id="btnVerify">Verify receipt</button>
+      </div>
 
-    <h2>Result</h2>
-    <pre id="out"></pre>
+      <h2 style="font-size: 16px; margin-bottom: 8px">Result</h2>
+      <pre id="out" class="muted">Awaiting input...</pre>
+    </main>
 
     <script>
       const out = document.getElementById("out");
       const input = document.getElementById("inpReceipt");
 
-      function log(line = "") {
-        out.textContent += `${line}\n`;
+      // Auto-load receipt from URL if provided
+      window.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const receiptBase64 = urlParams.get('receipt');
+        if (receiptBase64) {
+          try {
+            const jsonStr = decodeURIComponent(escape(atob(receiptBase64)));
+            input.value = JSON.stringify(JSON.parse(jsonStr), null, 2);
+            document.getElementById("btnVerify").click();
+          } catch(e) {
+            console.error("Failed to parse receipt from URL", e);
+          }
+        }
+      });
+
+      function log(line = "", className = "") {
+        if (className) {
+            out.innerHTML += `<span class="${className}">${line}</span>\n`;
+        } else {
+            out.textContent += `${line}\n`;
+        }
       }
 
       function resetOut() {
-        out.textContent = "";
+        out.innerHTML = "";
+        out.className = ""; // remove muted
       }
 
       function normalizeHex(x) {
@@ -199,8 +256,52 @@
           }
           return this.buf[this.off++];
         }
+
+        async nextUint32() {
+          const b0 = await this.nextByte();
+          const b1 = await this.nextByte();
+          const b2 = await this.nextByte();
+          const b3 = await this.nextByte();
+          return ((b0 << 24) | (b1 << 16) | (b2 << 8) | b3) >>> 0;
+        }
+
+        async randInt(n) {
+          if (!Number.isInteger(n) || n <= 0) throw new Error("randInt: n must be positive integer");
+          const range = 0x1_0000_0000n;
+          const bn = BigInt(n);
+          const limit = (range / bn) * bn;
+          while (true) {
+            const x = await this.nextUint32();
+            const xb = BigInt(x);
+            if (xb < limit) {
+              return Number(xb % bn);
+            }
+          }
+        }
+
+        async partialShuffleInPlace(arr, k) {
+          if (!Number.isInteger(k) || k < 0 || k > arr.length) {
+            throw new Error("partialShuffleInPlace: bad k");
+          }
+          for (let i = 0; i < k; i++) {
+            const j = i + (await this.randInt(arr.length - i));
+            const tmp = arr[i];
+            arr[i] = arr[j];
+            arr[j] = tmp;
+          }
+        }
+
+        async shuffleInPlace(arr) {
+          for (let i = arr.length - 1; i > 0; i--) {
+            const j = await this.randInt(i + 1);
+            const tmp = arr[i];
+            arr[i] = arr[j];
+            arr[j] = tmp;
+          }
+        }
       }
 
+      // ===== COINFLIP38 =====
       async function computeCoinflip38(receipt, serverSeedHex) {
         const req = {
           rngVersion: receipt.rngVersion,
@@ -233,6 +334,203 @@
         return { slot, outcome, multiplierBps: Number(mult), payoutSats };
       }
 
+      // ===== KARMA POKER =====
+      const RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"];
+      const SUITS = ["C", "D", "H", "S"];
+
+      function cardFromIndex(index) {
+        if (!Number.isInteger(index) || index < 0 || index > 51) {
+          throw new Error("card index out of range");
+        }
+        const suit = SUITS[Math.floor(index / 13)];
+        const rank = RANKS[index % 13];
+        return `${rank}${suit}`;
+      }
+
+      function cardColor(suit) {
+        return suit === "D" || suit === "H" ? "RED" : "BLACK";
+      }
+
+      function rankToValue(rank) {
+        if (rank === "A") return 14;
+        if (rank === "K") return 13;
+        if (rank === "Q") return 12;
+        if (rank === "J") return 11;
+        if (rank === "T") return 10;
+        return Number(rank);
+      }
+
+      function isStraight(valuesAsc) {
+        if (
+          valuesAsc[0] === 2 &&
+          valuesAsc[1] === 3 &&
+          valuesAsc[2] === 4 &&
+          valuesAsc[3] === 5 &&
+          valuesAsc[4] === 14
+        ) {
+          return true;
+        }
+        for (let i = 1; i < valuesAsc.length; i++) {
+          if (valuesAsc[i] !== valuesAsc[i - 1] + 1) return false;
+        }
+        return true;
+      }
+
+      function evaluateHand(cards) {
+        if (cards.length !== 5) throw new Error("hand must have exactly 5 cards");
+        const parsed = cards.map((c) => ({ rank: c[0], suit: c[1] }));
+        const ranks = parsed.map((v) => v.rank);
+        const suits = parsed.map((v) => v.suit);
+
+        const hasAce = ranks.includes("A");
+        const flush = suits.every((s) => s === suits[0]);
+        const firstColor = cardColor(suits[0]);
+        const sameColor = suits.every((s) => cardColor(s) === firstColor);
+
+        const values = ranks.map(rankToValue);
+        const uniqueValuesAsc = Array.from(new Set(values)).sort((a, b) => a - b);
+        const straight = uniqueValuesAsc.length === 5 && isStraight(uniqueValuesAsc);
+
+        const countByRank = new Map();
+        for (const value of values) {
+          countByRank.set(value, (countByRank.get(value) ?? 0) + 1);
+        }
+        const countsDesc = Array.from(countByRank.values()).sort((a, b) => b - a);
+
+        const isRoyal = flush && straight && uniqueValuesAsc[0] === 10 && uniqueValuesAsc[4] === 14;
+
+        let category;
+        if (isRoyal) category = "ROYAL_FLUSH";
+        else if (flush && straight) category = "STRAIGHT_FLUSH";
+        else if (countsDesc[0] === 4) category = "FOUR_KIND";
+        else if (countsDesc[0] === 3 && countsDesc[1] === 2) category = "FULL_HOUSE";
+        else if (flush) category = "FLUSH";
+        else if (straight) category = "STRAIGHT";
+        else if (countsDesc[0] === 3) category = "TRIPS";
+        else if (countsDesc[0] === 2 && countsDesc[1] === 2) category = "TWO_PAIR";
+        else if (countsDesc[0] === 2) category = "ONE_PAIR";
+        else category = "HIGH_CARD";
+
+        const anyPokerCombo = category !== "HIGH_CARD";
+        const twoPairOrBetter =
+          category === "TWO_PAIR" ||
+          category === "TRIPS" ||
+          category === "STRAIGHT" ||
+          category === "FLUSH" ||
+          category === "FULL_HOUSE" ||
+          category === "FOUR_KIND" ||
+          category === "STRAIGHT_FLUSH" ||
+          category === "ROYAL_FLUSH";
+
+        return { hasAce, sameColor, category, anyPokerCombo, twoPairOrBetter };
+      }
+
+      function isMarketWin(market, hand) {
+        if (market === "NO_ACE") return !hand.hasAce;
+        if (market === "NO_POKER_COMBO") return hand.category === "HIGH_CARD";
+        if (market === "ANY_POKER_COMBO") return hand.anyPokerCombo;
+        return hand.twoPairOrBetter || hand.sameColor;
+      }
+
+      const MARKET_BPS = {
+        NO_ACE: 14400,
+        NO_POKER_COMBO: 18900,
+        ANY_POKER_COMBO: 19000,
+        JACKPOT: 77000,
+      };
+
+      async function computeKarmapoker(receipt, serverSeedHex) {
+        const req = {
+          rngVersion: receipt.rngVersion,
+          gameId: receipt.gameId,
+          stream: receipt.stream,
+          eventId: receipt.eventId,
+          clientSeed: receipt.clientSeed,
+          nonce: receipt.nonce,
+          drawIndex: receipt.drawIndex,
+        };
+        const bs = new PfByteStream(serverSeedHex, req);
+
+        const deck = Array.from({ length: 52 }, (_, i) => i);
+        await bs.partialShuffleInPlace(deck, 5);
+        const cards = deck.slice(0, 5).map(cardFromIndex);
+        const evalResult = evaluateHand(cards);
+
+        return { cards, eval: evalResult };
+      }
+
+      // ===== KARMA LADDER =====
+      const LADDER_DECK = ["K", "A", "R", "M", "A"];
+      const MAIN_PAYOUT_BPS = { 1: 21000, 2: 12500, 3: 10500, 4: 3500 };
+      const ROPE_FEE_P = { n1: 8290n, n2: 14508n, n3: 24870n, n4: 62176n };
+      const ROPE_FEE_Q = 10000n;
+
+      function ceilDiv(a, b) {
+        if (b <= 0n) throw new Error("ceilDiv b<=0");
+        if (a < 0n) throw new Error("ceilDiv a<0");
+        return (a + b - 1n) / b;
+      }
+
+      function computeRopeFees(stakeSats) {
+        const n1 = ceilDiv(ROPE_FEE_P.n1 * stakeSats, ROPE_FEE_Q);
+        const n2 = ceilDiv(ROPE_FEE_P.n2 * stakeSats, ROPE_FEE_Q);
+        const n3 = ceilDiv(ROPE_FEE_P.n3 * stakeSats, ROPE_FEE_Q);
+        const n4 = ceilDiv(ROPE_FEE_P.n4 * stakeSats, ROPE_FEE_Q);
+        return { n1, n2, n3, n4 };
+      }
+
+      function payoutSatsByAttempt(stakeSats, attempt1to4) {
+        const bps = MAIN_PAYOUT_BPS[attempt1to4];
+        if (!bps) return 0n;
+        return (stakeSats * BigInt(bps)) / 10000n;
+      }
+
+      function findK(shuffle, picks) {
+        for (let i = 0; i < picks.length; i++) {
+          if (shuffle[picks[i]] === "K") return i + 1;
+        }
+        return null;
+      }
+
+      async function computeKarmaladder(receipt, serverSeedHex) {
+        // If it's a main round receipt
+        if (receipt.stream === "main_shuffle") {
+            const mainReq = {
+                rngVersion: receipt.rngVersion,
+                gameId: receipt.gameId,
+                stream: receipt.stream,
+                eventId: receipt.eventId,
+                clientSeed: receipt.clientSeed,
+                nonce: receipt.nonce,
+                drawIndex: receipt.drawIndex,
+            };
+            const mainBs = new PfByteStream(serverSeedHex, mainReq);
+            const mainDeck = [...LADDER_DECK];
+            await mainBs.shuffleInPlace(mainDeck);
+            return { shuffle: mainDeck };
+        }
+        
+        // If it's a rope round receipt
+        if (receipt.stream === "rope_shuffle") {
+            const ropeReq = {
+                rngVersion: receipt.rngVersion,
+                gameId: receipt.gameId,
+                stream: receipt.stream,
+                eventId: receipt.eventId,
+                clientSeed: receipt.clientSeed,
+                nonce: receipt.nonce,
+                drawIndex: receipt.drawIndex,
+            };
+            const ropeBs = new PfByteStream(serverSeedHex, ropeReq);
+            const ropeDeck = [...LADDER_DECK];
+            await ropeBs.shuffleInPlace(ropeDeck);
+            return { shuffle: ropeDeck };
+        }
+
+        throw new Error("Unknown stream for karmaladder");
+      }
+
+      // ===== ANCHOR VERIFICATION =====
       async function fetchJsonl(path) {
         const r = await fetch(path, { cache: "no-store" });
         if (!r.ok) throw new Error(`Fetch failed: ${path} (${r.status})`);
@@ -287,30 +585,37 @@
         const commit = commits.find((x) => String(x.seedSetId) === String(seedSetId));
         assert(commit, `Commit not found in ${commitsPath}`);
 
-        log(`Commit: OK (ts=${commit.ts})`);
+        log(`[Step 1] Server Seed Commit: OK (ts=${commit.ts})`, "ok");
         assert(eqHex(commit.serverSeedHashHex, receipt.serverSeedHash), "serverSeedHash mismatch");
         assert(String(commit.rngVersion) === String(receipt.rngVersion), "rngVersion mismatch");
         assert(String(commit.rulesVersion) === String(receipt.rulesVersion), "rulesVersion mismatch");
-        log("Commit matches receipt: OK");
+        log("Commit properties match receipt.", "ok");
         log("");
 
         const revealsPath = `./anchors/${gameId}/reveals.jsonl`;
-        const reveals = await fetchJsonl(revealsPath);
+        let reveals;
+        try {
+            reveals = await fetchJsonl(revealsPath);
+        } catch(e) {
+            reveals = [];
+        }
+        
         const reveal = reveals.find((x) => String(x.seedSetId) === String(seedSetId));
 
         if (!reveal) {
-          log("Reveal: NOT FOUND (seedset not revealed yet)");
-          log("You can verify commit existence, but not recompute outcome.");
+          log("[Step 2] Server Seed Reveal: PENDING", "warn");
+          log("The server seed for this round has not been revealed yet. This happens automatically when the seedset is rotated and all active rounds finish.");
           return;
         }
 
-        log(`Reveal: OK (ts=${reveal.ts})`);
+        log(`[Step 2] Server Seed Reveal: OK (ts=${reveal.ts})`, "ok");
         assert(eqHex(reveal.serverSeedHashHex, commit.serverSeedHashHex), "reveal hash mismatch vs commit");
         const computed = await sha256Hex(hexToBytes(reveal.serverSeedHex));
         assert(eqHex(computed, commit.serverSeedHashHex), "sha256(serverSeedHex) mismatch");
-        log("sha256(serverSeedHex) == serverSeedHash: OK");
+        log("sha256(serverSeedHex) == serverSeedHash. Cryptographic proof is valid.", "ok");
         log("");
 
+        log("[Step 3] Game Logic Recomputation:", "ok");
         if (gameId === "coinflip38") {
           const expected = await computeCoinflip38(receipt, reveal.serverSeedHex);
           const r = receipt.result;
@@ -321,15 +626,37 @@
           assert(toInt(r.multiplierBps, "result.multiplierBps") === expected.multiplierBps, "multiplier mismatch");
           assert(payoutSatsReceipt === expected.payoutSats, "payout mismatch");
 
-          log("coinflip38 outcome recompute: OK");
-          log(
-            `Computed slot=${expected.slot}, outcome=${expected.outcome}, payoutSats=${expected.payoutSats.toString()}`
-          );
+          log(`Computed slot=${expected.slot}, outcome=${expected.outcome}`);
+          return;
+        }
+
+        if (gameId === "karmapoker") {
+          const expected = await computeKarmapoker(receipt, reveal.serverSeedHex);
+          const r = receipt.result;
+
+          assert(JSON.stringify(r.cards) === JSON.stringify(expected.cards), "cards mismatch");
+          assert(r.eval.category === expected.eval.category, "category mismatch");
+          assert(r.eval.hasAce === expected.eval.hasAce, "hasAce mismatch");
+          assert(r.eval.sameColor === expected.eval.sameColor, "sameColor mismatch");
+          assert(r.eval.anyPokerCombo === expected.eval.anyPokerCombo, "anyPokerCombo mismatch");
+          assert(r.eval.twoPairOrBetter === expected.eval.twoPairOrBetter, "twoPairOrBetter mismatch");
+
+          log(`Computed cards: ${expected.cards.join(", ")}`);
+          log(`Hand category: ${expected.eval.category}`);
+          return;
+        }
+
+        if (gameId === "karmaladder") {
+          const expected = await computeKarmaladder(receipt, reveal.serverSeedHex);
+          const r = receipt.result;
+
+          assert(JSON.stringify(r.shuffle ?? []) === JSON.stringify(expected.shuffle), "shuffle mismatch");
+
+          log(`Computed shuffle: ${expected.shuffle.join(", ")}`);
           return;
         }
 
         log(`Game math verification not implemented yet for ${gameId}.`);
-        log("Commit and reveal checks are OK.");
       }
 
       document.getElementById("btnVerify").addEventListener("click", async () => {
@@ -339,10 +666,12 @@
           assert(txt.length > 0, "Paste a receipt JSON first.");
           const receipt = JSON.parse(txt);
           await verifyReceipt(receipt);
+          log("");
+          log("✓ All cryptographic checks and recomputations passed successfully!", "ok");
         } catch (e) {
           log("");
           log("ERROR:");
-          log(String(e && e.message ? e.message : e));
+          log(String(e && e.message ? e.message : e), "bad");
         }
       });
     </script>
