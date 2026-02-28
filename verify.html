@@ -12,8 +12,16 @@
         var T = {
           en: {
             pageTitle: "BetKarma - Receipt Verifier",
-            headerTitle: "BetKarma — Verifier",
-            headerSubtitle: "Paste a receipt JSON to verify it against public anchors and recompute outcomes.",
+            headerTitle: "Provably Fair Verifier",
+            headerSubtitle: "Check any bet for fairness. Paste a receipt below.",
+            fairPlayTitle: "Our fair play commitment",
+            fairPlayStatement: "We publish every game result to a public log so you can verify that outcomes are random and correct. Before a round starts, we commit a hash of the server seed. After the round ends, we reveal the seed and publish it here. Anyone can recompute the outcome and confirm it matches.",
+            fairPlayWhat: "What this proves",
+            fairPlayWhatText: "That the outcome was determined by a cryptographically random process, not chosen afterward. The server could not have changed the result once your bet was placed.",
+            fairPlayVerify: "How to verify",
+            fairPlayVerifyText: "In the app: History → Casino. Each bet has a receipt. Copy it and paste here. We compare it to our published anchors and recompute the outcome.",
+            fairPlayDisclosure: "Why not instant?",
+            fairPlayDisclosureText: "We reveal seeds and publish to this log once per hour, after the seedset rotates and all active rounds finish. That protects in-progress games. Your bets are verifiable within about an hour.",
             backToAnchors: "Back to Anchors",
             btnVerify: "Verify receipt",
             resultHeading: "Result",
@@ -40,8 +48,16 @@
           },
           ru: {
             pageTitle: "BetKarma — Верификатор чеков",
-            headerTitle: "BetKarma — Верификатор",
-            headerSubtitle: "Вставьте JSON чека для проверки по публичным якорям и пересчёту исходов.",
+            headerTitle: "Верификатор честной игры",
+            headerSubtitle: "Проверьте любую ставку на честность. Вставьте чек ниже.",
+            fairPlayTitle: "Наш принцип честной игры",
+            fairPlayStatement: "Мы публикуем каждый результат в открытый лог, чтобы вы могли убедиться, что исходы случайны и корректны. До начала раунда мы фиксируем хеш серверного сида. После завершения раунда — раскрываем сид и публикуем здесь. Любой может пересчитать исход и проверить соответствие.",
+            fairPlayWhat: "Что это доказывает",
+            fairPlayWhatText: "Что исход определён криптографически случайным процессом, а не подобран после факта. Сервер не мог изменить результат после вашей ставки.",
+            fairPlayVerify: "Как проверить",
+            fairPlayVerifyText: "В приложении: История → Казино. У каждой ставки есть чек. Скопируйте и вставьте сюда. Мы сверим его с публичными якорями и пересчитаем исход.",
+            fairPlayDisclosure: "Почему не мгновенно?",
+            fairPlayDisclosureText: "Раскрытие сидов и публикация в этот лог — раз в час, после ротации сидсета и завершения всех активных раундов. Так защищаются идущие игры. Ваши ставки можно проверить примерно в течение часа.",
             backToAnchors: "Назад к якорям",
             btnVerify: "Проверить чек",
             resultHeading: "Результат",
@@ -81,9 +97,34 @@
         color: #e8eefc;
       }
       header {
-        padding: 28px 18px;
+        padding: 28px 18px 32px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         background: rgba(255, 255, 255, 0.02);
+      }
+      .header-intro {
+        max-width: 640px;
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      .header-intro h2 {
+        font-size: 15px;
+        font-weight: 600;
+        margin: 0 0 10px;
+        color: #e8eefc;
+      }
+      .header-intro p {
+        font-size: 14px;
+        line-height: 1.55;
+        margin: 0 0 14px;
+        color: rgba(232, 238, 252, 0.9);
+      }
+      .header-intro p:last-child {
+        margin-bottom: 0;
+      }
+      .header-intro .note {
+        font-size: 13px;
+        color: rgba(232, 238, 252, 0.75);
       }
       main {
         max-width: 980px;
@@ -164,14 +205,22 @@
   <body>
     <header>
       <div style="max-width: 980px; margin: 0 auto">
-        <div class="row" style="justify-content: space-between; margin: 0">
+        <div class="row" style="justify-content: space-between; align-items: flex-start; margin: 0">
           <div>
-            <div id="i18n-headerTitle" style="font-size: 18px; font-weight: 700"></div>
-            <div id="i18n-headerSubtitle" class="muted" style="margin-top: 6px; font-size: 14px"></div>
+            <div id="i18n-headerTitle" style="font-size: 20px; font-weight: 700"></div>
+            <div id="i18n-headerSubtitle" class="muted" style="margin-top: 6px; font-size: 15px"></div>
           </div>
           <div>
             <span class="pill"><a id="backLink" href="">Back to Anchors</a></span>
+            <span class="pill" style="margin-left: 6px"><a id="langEn" href="?lang=en">EN</a> <span class="muted" style="margin: 0 4px">|</span> <a id="langRu" href="?lang=ru">RU</a></span>
           </div>
+        </div>
+        <div id="fairPlayBlock" class="header-intro">
+          <h2 id="i18n-fairPlayTitle"></h2>
+          <p id="i18n-fairPlayStatement"></p>
+          <p><strong id="i18n-fairPlayWhat"></strong> <span id="i18n-fairPlayWhatText"></span></p>
+          <p><strong id="i18n-fairPlayVerify"></strong> <span id="i18n-fairPlayVerifyText"></span></p>
+          <p class="note"><strong id="i18n-fairPlayDisclosure"></strong> <span id="i18n-fairPlayDisclosureText"></span></p>
         </div>
       </div>
     </header>
@@ -194,8 +243,16 @@
         var T = window.__T;
         var lang = window.__lang || "en";
         if (!T) return;
-        document.getElementById("i18n-headerTitle").textContent = T.headerTitle || "BetKarma — Verifier";
+        document.getElementById("i18n-headerTitle").textContent = T.headerTitle || "Provably Fair Verifier";
         document.getElementById("i18n-headerSubtitle").textContent = T.headerSubtitle || "";
+        document.getElementById("i18n-fairPlayTitle").textContent = T.fairPlayTitle || "Our fair play commitment";
+        document.getElementById("i18n-fairPlayStatement").textContent = T.fairPlayStatement || "";
+        document.getElementById("i18n-fairPlayWhat").textContent = T.fairPlayWhat || "What this proves";
+        document.getElementById("i18n-fairPlayWhatText").textContent = T.fairPlayWhatText || "";
+        document.getElementById("i18n-fairPlayVerify").textContent = T.fairPlayVerify || "How to verify";
+        document.getElementById("i18n-fairPlayVerifyText").textContent = T.fairPlayVerifyText || "";
+        document.getElementById("i18n-fairPlayDisclosure").textContent = T.fairPlayDisclosure || "Why not instant?";
+        document.getElementById("i18n-fairPlayDisclosureText").textContent = T.fairPlayDisclosureText || "";
         var backLink = document.getElementById("backLink");
         if (backLink) {
           backLink.href = "index.html?lang=" + lang;
