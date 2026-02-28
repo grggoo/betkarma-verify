@@ -13,6 +13,14 @@
           en: {
             pageTitle: "BetKarma - Provably Fair Anchors",
             headerTagline: "Public append-only log of seedset commits/reveals and rules snapshots.",
+            fairPlayTitle: "Our fair play commitment",
+            fairPlayStatement: "We publish every game result to a public log so you can verify that outcomes are random and correct. Before a round starts, we commit a hash of the server seed. After the round ends, we reveal the seed and publish it here. Anyone can recompute the outcome and confirm it matches.",
+            fairPlayWhat: "What this proves",
+            fairPlayWhatText: "That the outcome was determined by a cryptographically random process, not chosen afterward. The server could not have changed the result once your bet was placed.",
+            fairPlayVerify: "How to verify",
+            fairPlayVerifyText: "In the app: History → Casino. Each bet has a receipt. Copy it and paste it in the Verifier below. We compare it to our published anchors and recompute the outcome.",
+            fairPlayDisclosure: "Why not instant?",
+            fairPlayDisclosureText: "We reveal seeds and publish to this log once per hour, after the seedset rotates and all active rounds finish. That protects in-progress games. Your bets are verifiable within about an hour.",
             structure: "Structure:",
             sectionVerifier: "Verifier",
             verifierOpen: "Open verifier (paste a receipt JSON)",
@@ -37,6 +45,14 @@
           ru: {
             pageTitle: "BetKarma — Якоря Provably Fair",
             headerTagline: "Публичный дополняемый лог коммитов/раскрытий сидов и снимков правил.",
+            fairPlayTitle: "Наш принцип честной игры",
+            fairPlayStatement: "Мы публикуем каждый результат в открытый лог, чтобы вы могли убедиться, что исходы случайны и корректны. До начала раунда мы фиксируем хеш серверного сида. После завершения раунда — раскрываем сид и публикуем здесь. Любой может пересчитать исход и проверить соответствие.",
+            fairPlayWhat: "Что это доказывает",
+            fairPlayWhatText: "Что исход определён криптографически случайным процессом, а не подобран после факта. Сервер не мог изменить результат после вашей ставки.",
+            fairPlayVerify: "Как проверить",
+            fairPlayVerifyText: "В приложении: История → Казино. У каждой ставки есть чек. Скопируйте и вставьте в верификатор ниже. Мы сверим его с публичными якорями и пересчитаем исход.",
+            fairPlayDisclosure: "Почему не мгновенно?",
+            fairPlayDisclosureText: "Раскрытие сидов и публикация в этот лог — раз в час, после ротации сидсета и завершения всех активных раундов. Так защищаются идущие игры. Ваши ставки можно проверить примерно в течение часа.",
             structure: "Структура:",
             sectionVerifier: "Верификатор",
             verifierOpen: "Открыть верификатор (вставьте JSON чека)",
@@ -80,9 +96,34 @@
         text-decoration: underline;
       }
       header {
-        padding: 28px 18px;
+        padding: 28px 18px 32px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         background: rgba(255, 255, 255, 0.02);
+      }
+      .header-intro {
+        max-width: 640px;
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      .header-intro h2 {
+        font-size: 15px;
+        font-weight: 600;
+        margin: 0 0 10px;
+        color: #e8eefc;
+      }
+      .header-intro p {
+        font-size: 14px;
+        line-height: 1.55;
+        margin: 0 0 14px;
+        color: rgba(232, 238, 252, 0.9);
+      }
+      .header-intro p:last-child {
+        margin-bottom: 0;
+      }
+      .header-intro .note {
+        font-size: 13px;
+        color: rgba(232, 238, 252, 0.75);
       }
       main {
         max-width: 980px;
@@ -160,12 +201,26 @@
   <body>
     <header>
       <div style="max-width: 980px; margin: 0 auto;">
-        <div id="i18n-pageTitle" style="font-size: 18px; font-weight: 700;"></div>
-        <div id="i18n-headerTagline" class="muted" style="margin-top: 6px;"></div>
-        <div class="muted" style="margin-top: 10px;">
-          <span id="i18n-structure"></span>
-          <code>anchors/&lt;gameId&gt;/{seedsets,reveals}.jsonl</code>,
-          <code>rules/&lt;rulesVersion&gt;.json</code>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <div id="i18n-pageTitle" style="font-size: 20px; font-weight: 700;"></div>
+            <div id="i18n-headerTagline" class="muted" style="margin-top: 6px;"></div>
+            <div class="muted" style="margin-top: 10px;">
+              <span id="i18n-structure"></span>
+              <code>anchors/&lt;gameId&gt;/{seedsets,reveals}.jsonl</code>,
+              <code>rules/&lt;rulesVersion&gt;.json</code>
+            </div>
+          </div>
+          <div>
+            <span class="pill"><a id="langEn" href="?lang=en">EN</a> <span class="muted" style="margin: 0 4px">|</span> <a id="langRu" href="?lang=ru">RU</a></span>
+          </div>
+        </div>
+        <div id="fairPlayBlock" class="header-intro">
+          <h2 id="i18n-fairPlayTitle"></h2>
+          <p id="i18n-fairPlayStatement"></p>
+          <p><strong id="i18n-fairPlayWhat"></strong> <span id="i18n-fairPlayWhatText"></span></p>
+          <p><strong id="i18n-fairPlayVerify"></strong> <span id="i18n-fairPlayVerifyText"></span></p>
+          <p class="note"><strong id="i18n-fairPlayDisclosure"></strong> <span id="i18n-fairPlayDisclosureText"></span></p>
         </div>
       </div>
     </header>
@@ -208,6 +263,14 @@
           "i18n-pageTitle": "pageTitle",
           "i18n-headerTagline": "headerTagline",
           "i18n-structure": "structure",
+          "i18n-fairPlayTitle": "fairPlayTitle",
+          "i18n-fairPlayStatement": "fairPlayStatement",
+          "i18n-fairPlayWhat": "fairPlayWhat",
+          "i18n-fairPlayWhatText": "fairPlayWhatText",
+          "i18n-fairPlayVerify": "fairPlayVerify",
+          "i18n-fairPlayVerifyText": "fairPlayVerifyText",
+          "i18n-fairPlayDisclosure": "fairPlayDisclosure",
+          "i18n-fairPlayDisclosureText": "fairPlayDisclosureText",
           "i18n-sectionVerifier": "sectionVerifier",
           "i18n-sectionAnchors": "sectionAnchors",
           "i18n-sectionHowToVerify": "sectionHowToVerify",
