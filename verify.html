@@ -4,6 +4,75 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>BetKarma - Receipt Verifier</title>
+    <script>
+      (function() {
+        var params = new URLSearchParams(location.search);
+        var lang = (params.get("lang") || "").toLowerCase();
+        if (lang !== "ru") lang = "en";
+        var T = {
+          en: {
+            pageTitle: "BetKarma - Receipt Verifier",
+            headerTitle: "BetKarma — Verifier",
+            headerSubtitle: "Paste a receipt JSON to verify it against public anchors and recompute outcomes.",
+            backToAnchors: "Back to Anchors",
+            btnVerify: "Verify receipt",
+            resultHeading: "Result",
+            awaitingInput: "Awaiting input...",
+            placeholder: '{"gameId":"...","eventId":"...","seedSetId":"...",...}',
+            pasteFirst: "Paste a receipt JSON first.",
+            errorLabel: "ERROR:",
+            successAll: "✓ All cryptographic checks and recomputations passed successfully!",
+            gameLabel: "Game",
+            seedSetIdLabel: "SeedSetId",
+            step1Ok: "Server Seed Commit: OK",
+            commitMatch: "Commit properties match receipt.",
+            step2Pending: "Server Seed Reveal: PENDING",
+            step2PendingMsg: "The server seed for this round has not been revealed yet. This happens automatically when the seedset is rotated and all active rounds finish.",
+            step2Ok: "Server Seed Reveal: OK",
+            hashValid: "sha256(serverSeedHex) == serverSeedHash. Cryptographic proof is valid.",
+            step3Logic: "Game Logic Recomputation:",
+            computedSlot: "Computed slot",
+            outcome: "outcome",
+            computedCards: "Computed cards",
+            handCategory: "Hand category",
+            computedShuffle: "Computed shuffle",
+            notImplemented: "Game math verification not implemented yet for"
+          },
+          ru: {
+            pageTitle: "BetKarma — Верификатор чеков",
+            headerTitle: "BetKarma — Верификатор",
+            headerSubtitle: "Вставьте JSON чека для проверки по публичным якорям и пересчёту исходов.",
+            backToAnchors: "Назад к якорям",
+            btnVerify: "Проверить чек",
+            resultHeading: "Результат",
+            awaitingInput: "Ожидание ввода...",
+            placeholder: '{"gameId":"...","eventId":"...","seedSetId":"...",...}',
+            pasteFirst: "Сначала вставьте JSON чека.",
+            errorLabel: "ОШИБКА:",
+            successAll: "✓ Все криптографические проверки и пересчёты пройдены успешно!",
+            gameLabel: "Игра",
+            seedSetIdLabel: "SeedSetId",
+            step1Ok: "Коммит серверного сида: OK",
+            commitMatch: "Параметры коммита совпадают с чеком.",
+            step2Pending: "Раскрытие серверного сида: ОЖИДАНИЕ",
+            step2PendingMsg: "Серверный сид для этого раунда ещё не раскрыт. Раскрытие произойдёт автоматически при ротации сидсета после завершения всех активных раундов.",
+            step2Ok: "Раскрытие серверного сида: OK",
+            hashValid: "sha256(serverSeedHex) == serverSeedHash. Криптографическое доказательство корректно.",
+            step3Logic: "Пересчёт логики игры:",
+            computedSlot: "Вычисленный слот",
+            outcome: "исход",
+            computedCards: "Вычисленные карты",
+            handCategory: "Категория руки",
+            computedShuffle: "Вычисленная перестановка",
+            notImplemented: "Верификация математики игры пока не реализована для"
+          }
+        };
+        window.__lang = lang;
+        window.__T = T[lang] || T.en;
+        document.documentElement.lang = lang;
+        document.title = window.__T.pageTitle;
+      })();
+    </script>
     <style>
       body {
         font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
@@ -97,13 +166,11 @@
       <div style="max-width: 980px; margin: 0 auto">
         <div class="row" style="justify-content: space-between; margin: 0">
           <div>
-            <div style="font-size: 18px; font-weight: 700">BetKarma — Verifier</div>
-            <div class="muted" style="margin-top: 6px; font-size: 14px">
-              Paste a receipt JSON to verify it against public anchors and recompute outcomes.
-            </div>
+            <div id="i18n-headerTitle" style="font-size: 18px; font-weight: 700"></div>
+            <div id="i18n-headerSubtitle" class="muted" style="margin-top: 6px; font-size: 14px"></div>
           </div>
           <div>
-            <span class="pill"><a href="./index.html">Back to Anchors</a></span>
+            <span class="pill"><a id="backLink" href="">Back to Anchors</a></span>
           </div>
         </div>
       </div>
@@ -111,18 +178,35 @@
 
     <main>
       <div style="margin-bottom: 16px">
-        <textarea id="inpReceipt" spellcheck="false" placeholder='{"gameId":"...","eventId":"...","seedSetId":"...",...}'></textarea>
+        <textarea id="inpReceipt" spellcheck="false" placeholder=""></textarea>
       </div>
 
       <div class="row" style="margin-bottom: 24px">
         <button id="btnVerify">Verify receipt</button>
       </div>
 
-      <h2 style="font-size: 16px; margin-bottom: 8px">Result</h2>
-      <pre id="out" class="muted">Awaiting input...</pre>
+      <h2 id="i18n-resultHeading" style="font-size: 16px; margin-bottom: 8px">Result</h2>
+      <pre id="out" class="muted"></pre>
     </main>
 
     <script>
+      (function applyI18n() {
+        var T = window.__T;
+        var lang = window.__lang || "en";
+        if (!T) return;
+        document.getElementById("i18n-headerTitle").textContent = T.headerTitle || "BetKarma — Verifier";
+        document.getElementById("i18n-headerSubtitle").textContent = T.headerSubtitle || "";
+        var backLink = document.getElementById("backLink");
+        if (backLink) {
+          backLink.href = "index.html?lang=" + lang;
+          backLink.textContent = T.backToAnchors || "Back to Anchors";
+        }
+        document.getElementById("btnVerify").textContent = T.btnVerify || "Verify receipt";
+        document.getElementById("i18n-resultHeading").textContent = T.resultHeading || "Result";
+        document.getElementById("inpReceipt").placeholder = T.placeholder || "";
+        document.getElementById("out").textContent = T.awaitingInput || "Awaiting input...";
+      })();
+
       const out = document.getElementById("out");
       const input = document.getElementById("inpReceipt");
 
@@ -575,9 +659,10 @@
 
         const gameId = receipt.gameId;
         const seedSetId = receipt.seedSetId;
+        const T = window.__T || {};
 
-        log(`Game: ${gameId}`);
-        log(`SeedSetId: ${seedSetId}`);
+        log(`${T.gameLabel || "Game"}: ${gameId}`);
+        log(`${T.seedSetIdLabel || "SeedSetId"}: ${seedSetId}`);
         log("");
 
         const commitsPath = `./anchors/${gameId}/seedsets.jsonl`;
@@ -585,11 +670,11 @@
         const commit = commits.find((x) => String(x.seedSetId) === String(seedSetId));
         assert(commit, `Commit not found in ${commitsPath}`);
 
-        log(`[Step 1] Server Seed Commit: OK (ts=${commit.ts})`, "ok");
+        log(`[Step 1] ${T.step1Ok || "Server Seed Commit: OK"} (ts=${commit.ts})`, "ok");
         assert(eqHex(commit.serverSeedHashHex, receipt.serverSeedHash), "serverSeedHash mismatch");
         assert(String(commit.rngVersion) === String(receipt.rngVersion), "rngVersion mismatch");
         assert(String(commit.rulesVersion) === String(receipt.rulesVersion), "rulesVersion mismatch");
-        log("Commit properties match receipt.", "ok");
+        log(T.commitMatch || "Commit properties match receipt.", "ok");
         log("");
 
         const revealsPath = `./anchors/${gameId}/reveals.jsonl`;
@@ -603,19 +688,19 @@
         const reveal = reveals.find((x) => String(x.seedSetId) === String(seedSetId));
 
         if (!reveal) {
-          log("[Step 2] Server Seed Reveal: PENDING", "warn");
-          log("The server seed for this round has not been revealed yet. This happens automatically when the seedset is rotated and all active rounds finish.");
+          log(`[Step 2] ${T.step2Pending || "Server Seed Reveal: PENDING"}`, "warn");
+          log(T.step2PendingMsg || "The server seed for this round has not been revealed yet.");
           return;
         }
 
-        log(`[Step 2] Server Seed Reveal: OK (ts=${reveal.ts})`, "ok");
+        log(`[Step 2] ${T.step2Ok || "Server Seed Reveal: OK"} (ts=${reveal.ts})`, "ok");
         assert(eqHex(reveal.serverSeedHashHex, commit.serverSeedHashHex), "reveal hash mismatch vs commit");
         const computed = await sha256Hex(hexToBytes(reveal.serverSeedHex));
         assert(eqHex(computed, commit.serverSeedHashHex), "sha256(serverSeedHex) mismatch");
-        log("sha256(serverSeedHex) == serverSeedHash. Cryptographic proof is valid.", "ok");
+        log(T.hashValid || "sha256(serverSeedHex) == serverSeedHash. Cryptographic proof is valid.", "ok");
         log("");
 
-        log("[Step 3] Game Logic Recomputation:", "ok");
+        log(`[Step 3] ${T.step3Logic || "Game Logic Recomputation:"}`, "ok");
         if (gameId === "coinflip38") {
           const expected = await computeCoinflip38(receipt, reveal.serverSeedHex);
           const r = receipt.result;
@@ -626,7 +711,7 @@
           assert(toInt(r.multiplierBps, "result.multiplierBps") === expected.multiplierBps, "multiplier mismatch");
           assert(payoutSatsReceipt === expected.payoutSats, "payout mismatch");
 
-          log(`Computed slot=${expected.slot}, outcome=${expected.outcome}`);
+          log(`${T.computedSlot || "Computed slot"}=${expected.slot}, ${T.outcome || "outcome"}=${expected.outcome}`);
           return;
         }
 
@@ -641,8 +726,8 @@
           assert(r.eval.anyPokerCombo === expected.eval.anyPokerCombo, "anyPokerCombo mismatch");
           assert(r.eval.twoPairOrBetter === expected.eval.twoPairOrBetter, "twoPairOrBetter mismatch");
 
-          log(`Computed cards: ${expected.cards.join(", ")}`);
-          log(`Hand category: ${expected.eval.category}`);
+          log(`${T.computedCards || "Computed cards"}: ${expected.cards.join(", ")}`);
+          log(`${T.handCategory || "Hand category"}: ${expected.eval.category}`);
           return;
         }
 
@@ -652,25 +737,26 @@
 
           assert(JSON.stringify(r.shuffle ?? []) === JSON.stringify(expected.shuffle), "shuffle mismatch");
 
-          log(`Computed shuffle: ${expected.shuffle.join(", ")}`);
+          log(`${T.computedShuffle || "Computed shuffle"}: ${expected.shuffle.join(", ")}`);
           return;
         }
 
-        log(`Game math verification not implemented yet for ${gameId}.`);
+        log(`${T.notImplemented || "Game math verification not implemented yet for"} ${gameId}.`);
       }
 
       document.getElementById("btnVerify").addEventListener("click", async () => {
         resetOut();
+        const T = window.__T || {};
         try {
           const txt = input.value.trim();
-          assert(txt.length > 0, "Paste a receipt JSON first.");
+          assert(txt.length > 0, T.pasteFirst || "Paste a receipt JSON first.");
           const receipt = JSON.parse(txt);
           await verifyReceipt(receipt);
           log("");
-          log("✓ All cryptographic checks and recomputations passed successfully!", "ok");
+          log(T.successAll || "✓ All cryptographic checks and recomputations passed successfully!", "ok");
         } catch (e) {
           log("");
-          log("ERROR:");
+          log(T.errorLabel || "ERROR:");
           log(String(e && e.message ? e.message : e), "bad");
         }
       });
