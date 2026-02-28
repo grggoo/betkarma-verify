@@ -4,6 +4,67 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>BetKarma - Provably Fair Anchors</title>
+    <script>
+      (function() {
+        var params = new URLSearchParams(location.search);
+        var lang = (params.get("lang") || "").toLowerCase();
+        if (lang !== "ru") lang = "en";
+        var T = {
+          en: {
+            pageTitle: "BetKarma - Provably Fair Anchors",
+            headerTagline: "Public append-only log of seedset commits/reveals and rules snapshots.",
+            structure: "Structure:",
+            sectionVerifier: "Verifier",
+            verifierOpen: "Open verifier (paste a receipt JSON)",
+            sectionAnchors: "Anchors",
+            sectionHowToVerify: "How to verify",
+            step1: "Get a receipt from the app or verify endpoint (gameId, seedSetId, serverSeedHash, rulesVersion, rngVersion).",
+            step2: "Open anchors/<gameId>/seedsets.jsonl and find the line with this seedSetId and serverSeedHashHex.",
+            step3: "When the seedset is revealed, reveals.jsonl will include serverSeedHex. Verify: sha256(serverSeedHex) == serverSeedHashHex.",
+            step4: "Recompute the outcome using the public rules and receipts.",
+            sectionQuickReveal: "Quick reveal hash check (sha256)",
+            pasteRevealLine: "Paste one JSON line from reveals.jsonl and click Verify.",
+            btnVerify: "Verify reveal hash",
+            loading: "Loading...",
+            noCommits: "No commits yet for this game.",
+            revealedYes: "YES",
+            revealedNo: "NO",
+            resultOk: "OK",
+            resultMismatch: "MISMATCH",
+            errorLabel: "Error:",
+            errorLoading: "Error loading anchors:"
+          },
+          ru: {
+            pageTitle: "BetKarma — Якоря Provably Fair",
+            headerTagline: "Публичный дополняемый лог коммитов/раскрытий сидов и снимков правил.",
+            structure: "Структура:",
+            sectionVerifier: "Верификатор",
+            verifierOpen: "Открыть верификатор (вставьте JSON чека)",
+            sectionAnchors: "Якоря",
+            sectionHowToVerify: "Как проверить",
+            step1: "Получите чек в приложении или через verify endpoint (gameId, seedSetId, serverSeedHash, rulesVersion, rngVersion).",
+            step2: "Откройте anchors/<gameId>/seedsets.jsonl и найдите строку с этим seedSetId и serverSeedHashHex.",
+            step3: "Когда сидсет раскрыт, в reveals.jsonl будет serverSeedHex. Проверьте: sha256(serverSeedHex) == serverSeedHashHex.",
+            step4: "Пересчитайте исход по публичным правилам и чекам.",
+            sectionQuickReveal: "Быстрая проверка хеша раскрытия (sha256)",
+            pasteRevealLine: "Вставьте одну строку JSON из reveals.jsonl и нажмите Проверить.",
+            btnVerify: "Проверить хеш раскрытия",
+            loading: "Загрузка...",
+            noCommits: "Пока нет коммитов для этой игры.",
+            revealedYes: "ДА",
+            revealedNo: "НЕТ",
+            resultOk: "ОК",
+            resultMismatch: "НЕ СОВПАДАЕТ",
+            errorLabel: "Ошибка:",
+            errorLoading: "Ошибка загрузки якорей:"
+          }
+        };
+        window.__lang = lang;
+        window.__T = T[lang] || T.en;
+        document.documentElement.lang = lang;
+        document.title = window.__T.pageTitle;
+      })();
+    </script>
     <style>
       body {
         font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
@@ -99,12 +160,10 @@
   <body>
     <header>
       <div style="max-width: 980px; margin: 0 auto;">
-        <div style="font-size: 18px; font-weight: 700;">BetKarma - Provably Fair Anchors</div>
-        <div class="muted" style="margin-top: 6px;">
-          Public append-only log of seedset commits/reveals and rules snapshots.
-        </div>
+        <div id="i18n-pageTitle" style="font-size: 18px; font-weight: 700;"></div>
+        <div id="i18n-headerTagline" class="muted" style="margin-top: 6px;"></div>
         <div class="muted" style="margin-top: 10px;">
-          Structure:
+          <span id="i18n-structure"></span>
           <code>anchors/&lt;gameId&gt;/{seedsets,reveals}.jsonl</code>,
           <code>rules/&lt;rulesVersion&gt;.json</code>
         </div>
@@ -112,37 +171,66 @@
     </header>
 
     <main>
-      <h2 style="margin: 14px 0 10px;">Verifier</h2>
-      <div class="muted" style="margin-bottom: 12px;">
-        <a href="./verify.html">Open verifier</a> (paste a receipt JSON)
-      </div>
+      <h2 style="margin: 22px 0 10px;" id="i18n-sectionVerifier"></h2>
+      <p class="muted">
+        <a id="verifierLink" href=""> </a>
+      </p>
 
-      <h2 style="margin: 14px 0 10px;">Anchors</h2>
+      <h2 style="margin: 14px 0 10px;" id="i18n-sectionAnchors"></h2>
       <div id="games" class="grid"></div>
 
-      <h2 style="margin: 22px 0 10px;">How to verify</h2>
+      <h2 style="margin: 22px 0 10px;" id="i18n-sectionHowToVerify"></h2>
       <ol class="muted">
-        <li>Get a receipt from the app or verify endpoint (gameId, seedSetId, serverSeedHash, rulesVersion, rngVersion).</li>
-        <li>Open <code>anchors/&lt;gameId&gt;/seedsets.jsonl</code> and find the line with this seedSetId and serverSeedHashHex.</li>
-        <li>When the seedset is revealed, <code>reveals.jsonl</code> will include serverSeedHex. Verify: <code>sha256(serverSeedHex) == serverSeedHashHex</code>.</li>
-        <li>Recompute the outcome using the public rules and receipts.</li>
+        <li id="i18n-step1"></li>
+        <li id="i18n-step2"></li>
+        <li id="i18n-step3"></li>
+        <li id="i18n-step4"></li>
       </ol>
 
-      <h2 style="margin: 22px 0 10px;">Quick reveal hash check (sha256)</h2>
-      <div class="muted" style="margin-bottom: 8px;">
-        Paste one JSON line from <code>reveals.jsonl</code> and click Verify.
-      </div>
+      <h2 style="margin: 22px 0 10px;" id="i18n-sectionQuickReveal"></h2>
+      <div id="i18n-pasteRevealLine" class="muted" style="margin-bottom: 8px;"></div>
       <textarea
         id="revealLine"
         placeholder='{"ts":"...","gameId":"coinflip38","seedSetId":"...","serverSeedHex":"...","serverSeedHashHex":"..."}'
       ></textarea>
       <div style="margin-top: 10px;">
-        <button id="btnVerify">Verify reveal hash</button>
+        <button id="btnVerify"></button>
       </div>
       <pre id="verifyOut" class="muted" style="margin-top: 10px;"></pre>
     </main>
 
     <script>
+      (function applyI18n() {
+        var T = window.__T;
+        var lang = window.__lang || "en";
+        if (!T) return;
+        var map = {
+          "i18n-pageTitle": "pageTitle",
+          "i18n-headerTagline": "headerTagline",
+          "i18n-structure": "structure",
+          "i18n-sectionVerifier": "sectionVerifier",
+          "i18n-sectionAnchors": "sectionAnchors",
+          "i18n-sectionHowToVerify": "sectionHowToVerify",
+          "i18n-step1": "step1",
+          "i18n-step2": "step2",
+          "i18n-step3": "step3",
+          "i18n-step4": "step4",
+          "i18n-sectionQuickReveal": "sectionQuickReveal",
+          "i18n-pasteRevealLine": "pasteRevealLine"
+        };
+        Object.keys(map).forEach(function(id) {
+          var el = document.getElementById(id);
+          if (el) el.textContent = T[map[id]] || "";
+        });
+        var btn = document.getElementById("btnVerify");
+        if (btn) btn.textContent = T.btnVerify || "Verify reveal hash";
+        var verifierLink = document.getElementById("verifierLink");
+        if (verifierLink) {
+          verifierLink.href = "verify.html?lang=" + lang;
+          verifierLink.textContent = T.verifierOpen || "Open verifier (paste a receipt JSON)";
+        }
+      })();
+
       const GAMES = [
         { id: "coinflip38", title: "coinflip38" },
         { id: "karmaladder", title: "karmaladder" },
@@ -196,7 +284,7 @@
                 el("a", { href: revealsUrl }, ["reveals.jsonl"]),
               ]),
             ]),
-            el("div", { class: "muted", style: "margin-top:10px;" }, ["Loading..."]),
+            el("div", { class: "muted", style: "margin-top:10px;" }, [window.__T ? window.__T.loading : "Loading..."]),
           ]);
 
           host.appendChild(card);
@@ -208,20 +296,22 @@
             const revealMap = new Map(reveals.map((r) => [r.seedSetId, r]));
             const lastCommitReveal = lastCommit ? revealMap.get(lastCommit.seedSetId) : null;
 
+            const T = window.__T || {};
             const lines = [];
             lines.push(`commits: ${seedsets.length}, reveals: ${reveals.length}`);
             if (lastCommit) {
               lines.push(`latest seedSetId: ${lastCommit.seedSetId}`);
               lines.push(`latest hash: ${shortHex(lastCommit.serverSeedHashHex)}`);
               lines.push(`latest ts: ${lastCommit.ts}`);
-              lines.push(`revealed: ${lastCommitReveal ? "YES" : "NO"}`);
+              lines.push(`revealed: ${lastCommitReveal ? (T.revealedYes || "YES") : (T.revealedNo || "NO")}`);
             } else {
-              lines.push("No commits yet for this game.");
+              lines.push(T.noCommits || "No commits yet for this game.");
             }
 
             card.lastChild.textContent = lines.join("\n");
           } catch (e) {
-            card.lastChild.textContent = `Error loading anchors: ${e && e.message ? e.message : e}`;
+            const T = window.__T || {};
+            card.lastChild.textContent = (T.errorLoading || "Error loading anchors:") + " " + (e && e.message ? e.message : e);
           }
         }
       }
@@ -248,6 +338,7 @@
 
       document.getElementById("btnVerify").addEventListener("click", async () => {
         const out = document.getElementById("verifyOut");
+        const T = window.__T || {};
         out.textContent = "";
         try {
           const line = JSON.parse(document.getElementById("revealLine").value);
@@ -256,11 +347,11 @@
           out.textContent =
             `computed sha256(serverSeedHex): ${computed}\n` +
             `anchored serverSeedHashHex:     ${line.serverSeedHashHex}\n` +
-            `result: ${ok ? "OK" : "MISMATCH"}`;
+            `result: ${ok ? (T.resultOk || "OK") : (T.resultMismatch || "MISMATCH")}`;
           out.className = ok ? "ok" : "bad";
         } catch (e) {
           out.className = "bad";
-          out.textContent = `Error: ${e && e.message ? e.message : e}`;
+          out.textContent = (T.errorLabel || "Error:") + " " + (e && e.message ? e.message : e);
         }
       });
 
