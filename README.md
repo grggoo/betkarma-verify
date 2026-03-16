@@ -2,6 +2,8 @@
 
 This repository is an append-only audit log for BetKarma provably fair seedsets and reveals.
 
+Supported games: `coinflip38`, `karmapoker`, `karmaladder`, `dice`.
+
 ## Structure
 
 - `anchors/<gameId>/seedsets.jsonl`  

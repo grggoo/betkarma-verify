@@ -36,6 +36,7 @@
             computedCards: "Computed cards",
             handCategory: "Hand category",
             computedShuffle: "Computed shuffle",
+            computedDice: "Computed dice",
             notImplemented: "Game math verification not implemented yet for"
           },
           ru: {
@@ -64,6 +65,7 @@
             computedCards: "Вычисленные карты",
             handCategory: "Категория руки",
             computedShuffle: "Вычисленная перестановка",
+            computedDice: "Вычисленные кости",
             notImplemented: "Верификация математики игры пока не реализована для"
           }
         };
@@ -615,6 +617,52 @@
         throw new Error("Unknown stream for karmaladder");
       }
 
+      // ===== DICE =====
+      const DICE_MARKET_BPS = {
+        LOW: 22800,
+        HIGH: 22800,
+        EVEN: 19000,
+        PAIR: 57000,
+      };
+
+      function outcomeTagsForDice(die1, die2) {
+        const sum = die1 + die2;
+        const tags = [];
+        if (sum >= 2 && sum <= 6) tags.push("LOW");
+        if (sum >= 8 && sum <= 12) tags.push("HIGH");
+        if (sum % 2 === 0) tags.push("EVEN");
+        if (die1 === die2) tags.push("PAIR");
+        return tags;
+      }
+
+      async function computeDice(receipt, serverSeedHex) {
+        const req = {
+          rngVersion: receipt.rngVersion,
+          gameId: receipt.gameId,
+          stream: receipt.stream,
+          eventId: receipt.eventId,
+          clientSeed: receipt.clientSeed,
+          nonce: receipt.nonce,
+          drawIndex: receipt.drawIndex,
+        };
+        const bs = new PfByteStream(serverSeedHex, req);
+        const die1 = (await bs.randInt(6)) + 1;
+        const die2 = (await bs.randInt(6)) + 1;
+        const sum = die1 + die2;
+        const outcomeTags = outcomeTagsForDice(die1, die2);
+
+        const market = String(receipt?.params?.market ?? "");
+        const stakeSats = toBigIntSats(receipt?.params?.stakeSats, "params.stakeSats");
+        const win = outcomeTags.includes(market);
+        const multiplierBps = DICE_MARKET_BPS[market];
+        if (!Number.isInteger(multiplierBps)) {
+          throw new Error(`Unknown dice market: ${market}`);
+        }
+        const payoutSats = win ? (stakeSats * BigInt(multiplierBps)) / 10000n : 0n;
+
+        return { die1, die2, sum, outcomeTags, win, multiplierBps, payoutSats };
+      }
+
       // ===== ANCHOR VERIFICATION =====
       async function fetchJsonl(path) {
         const r = await fetch(path, { cache: "no-store" });
@@ -739,6 +787,24 @@
           assert(JSON.stringify(r.shuffle ?? []) === JSON.stringify(expected.shuffle), "shuffle mismatch");
 
           log(`${T.computedShuffle || "Computed shuffle"}: ${expected.shuffle.join(", ")}`);
+          return;
+        }
+
+        if (gameId === "dice") {
+          const expected = await computeDice(receipt, reveal.serverSeedHex);
+          const r = receipt.result;
+
+          assert(toInt(r.die1, "result.die1") === expected.die1, "die1 mismatch");
+          assert(toInt(r.die2, "result.die2") === expected.die2, "die2 mismatch");
+          assert(toInt(r.sum, "result.sum") === expected.sum, "sum mismatch");
+          assert(JSON.stringify(r.outcomeTags ?? []) === JSON.stringify(expected.outcomeTags), "outcomeTags mismatch");
+          assert(Boolean(r.win) === expected.win, "win mismatch");
+          assert(toInt(r.multiplierBps, "result.multiplierBps") === expected.multiplierBps, "multiplier mismatch");
+          assert(toBigIntSats(r.payoutSats, "result.payoutSats") === expected.payoutSats, "payout mismatch");
+
+          log(
+            `${T.computedDice || "Computed dice"}: d1=${expected.die1}, d2=${expected.die2}, sum=${expected.sum}, tags=[${expected.outcomeTags.join(", ")}]`
+          );
           return;
         }
 
