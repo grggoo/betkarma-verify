@@ -1,0 +1,786 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>BetKarma Exchange — Letter of Guarantee verifier</title>
+    <script>
+      (function () {
+        var params = new URLSearchParams(location.search);
+        var lang = (params.get("lang") || "").toLowerCase();
+        if (lang !== "ru") lang = "en";
+        var T = {
+          en: {
+            pageTitle: "BetKarma Exchange — Letter of Guarantee verifier",
+            tagline:
+              "Verifies a signed letter against the published BTC signing address. Runs entirely in your browser — we never see the letter.",
+            section1Title: "Step 1 — paste the letter or upload the .txt",
+            inputPlaceholder:
+              "Paste the full letter here, including the BEGIN / END markers…",
+            uploadHint: "or upload a .txt file:",
+            section2Title: "Step 2 — verify",
+            verifyBtn: "Verify letter",
+            clearBtn: "Clear",
+            sampleBtn: "Load sample (failing demo)",
+            sectionResultTitle: "Result",
+            algoTitle: "How it works",
+            algoIntro:
+              "The letter is a PGP-cleartext-style envelope. Anyone with a desktop wallet (Electrum, Sparrow, Bitcoin Core) can verify it manually using the same inputs:",
+            algoStep1:
+              "The letter is a PGP-cleartext-style envelope. Open it in any text viewer — the body between the Hash header and the SIGNATURE marker is exactly the human-readable text that was signed (UTF-8, LF line endings, no trailing newline).",
+            algoStep2:
+              "Read the SIGNATURE block: Address (BTC P2WPKH), Algorithm, PayloadSha256 (hex), Signature (base64).",
+            algoStep3:
+              "Compute SHA-256(body). It must match the PayloadSha256 line — integrity check that the body wasn't tampered with after signing.",
+            algoStep4:
+              "Run \"verify message\" with: address, body string, signature. Any BIP-137 wallet (Electrum, Sparrow, Bitcoin Core 25+) works; we ship a self-contained implementation below.",
+            algoStep5:
+              "Confirm the Address line matches the trust anchor published at signing-address.json.",
+            anchorTitle: "Trust anchor",
+            anchorIntro:
+              "The only BTC address betKarma will ever use for exchange letters is:",
+            anchorVerify:
+              "Anchor file (this repo, append-only):",
+            statusValid: "VALID",
+            statusInvalid: "INVALID",
+            statusPreview: "UNSIGNED PREVIEW",
+            statusError: "ERROR",
+            previewBody:
+              "This letter is marked as an unsigned preview. It is NOT a guarantee. Production letters always carry a real signature.",
+            mismatchAnchor:
+              "Signer address does NOT match the published trust anchor.",
+            shaMismatch:
+              "Payload SHA-256 does not match the value declared in the letter.",
+            sigInvalid:
+              "Bitcoin message signature does not verify against the declared address.",
+            sigValid:
+              "Bitcoin message signature verified against the declared signer.",
+            anchorMatch: "Signer address matches the published trust anchor.",
+            shaMatch: "Payload SHA-256 matches the value declared in the letter.",
+            parseError: "Could not parse the letter. Make sure the BEGIN / END markers are present.",
+            anchorLoadError: "Could not load the signing-address.json anchor (offline?).",
+            footer:
+              "Open-source verifier. View source on GitHub. Algorithm: BIP-137 (Bitcoin signed message) for P2WPKH addresses.",
+            githubLink: "View source",
+            backToHome: "← Anchors index",
+          },
+          ru: {
+            pageTitle: "BetKarma Exchange — верификатор Letter of Guarantee",
+            tagline:
+              "Проверяет подписанное гарантийное письмо против опубликованного BTC-адреса. Работает полностью в вашем браузере — мы письмо не видим.",
+            section1Title: "Шаг 1 — вставьте письмо или загрузите .txt",
+            inputPlaceholder:
+              "Вставьте сюда весь текст письма, включая маркеры BEGIN / END…",
+            uploadHint: "или загрузите .txt файл:",
+            section2Title: "Шаг 2 — проверка",
+            verifyBtn: "Проверить письмо",
+            clearBtn: "Очистить",
+            sampleBtn: "Загрузить пример (заведомо невалидный)",
+            sectionResultTitle: "Результат",
+            algoTitle: "Как это работает",
+            algoIntro:
+              "Письмо — это конверт в стиле PGP cleartext. Любой, у кого есть Electrum, Sparrow или Bitcoin Core, может проверить его вручную тем же набором данных:",
+            algoStep1:
+              "Письмо — конверт в стиле PGP cleartext. Откройте его в любом текстовом редакторе — тело между Hash-заголовком и маркером SIGNATURE и есть тот самый человеко-читаемый текст, который подписан (UTF-8, LF, без хвостового перевода строки).",
+            algoStep2:
+              "Прочитайте блок SIGNATURE: Address (BTC P2WPKH), Algorithm, PayloadSha256 (hex), Signature (base64).",
+            algoStep3:
+              "Посчитайте SHA-256(body). Должен совпасть со строкой PayloadSha256 — проверка целостности (тело не подменили после подписания).",
+            algoStep4:
+              "Запустите «verify message»: адрес, текст body, подпись. Подходит любой BIP-137-совместимый кошелёк (Electrum, Sparrow, Bitcoin Core 25+); ниже — встроенная реализация.",
+            algoStep5:
+              "Убедитесь, что строка Address совпадает с trust anchor из signing-address.json.",
+            anchorTitle: "Точка доверия",
+            anchorIntro:
+              "Единственный BTC-адрес, которым betKarma подписывает гарантийные письма:",
+            anchorVerify: "Файл якоря (этот репозиторий, append-only):",
+            statusValid: "ВАЛИДНО",
+            statusInvalid: "НЕВАЛИДНО",
+            statusPreview: "ПРЕВЬЮ БЕЗ ПОДПИСИ",
+            statusError: "ОШИБКА",
+            previewBody:
+              "Это письмо помечено как unsigned preview. Это НЕ гарантия. Боевые письма всегда подписаны.",
+            mismatchAnchor:
+              "Адрес подписанта НЕ совпадает с опубликованной точкой доверия.",
+            shaMismatch:
+              "SHA-256 payload не совпадает с заявленным в письме.",
+            sigInvalid:
+              "Bitcoin message signature не проходит проверку против заявленного адреса.",
+            sigValid:
+              "Bitcoin message signature успешно проверена против подписанта.",
+            anchorMatch: "Адрес подписанта совпадает с опубликованной точкой доверия.",
+            shaMatch: "SHA-256 payload совпадает с заявленным в письме.",
+            parseError: "Не удалось разобрать письмо. Убедитесь, что присутствуют маркеры BEGIN / END.",
+            anchorLoadError: "Не удалось загрузить signing-address.json (нет сети?).",
+            footer:
+              "Open-source верификатор. Исходник на GitHub. Алгоритм: BIP-137 (Bitcoin signed message) для P2WPKH-адресов.",
+            githubLink: "Открыть исходник",
+            backToHome: "← К индексу якорей",
+          },
+        };
+        window.__lang = lang;
+        window.__T = T[lang] || T.en;
+        document.documentElement.lang = lang;
+        document.title = window.__T.pageTitle;
+      })();
+    </script>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+        margin: 0;
+        background: radial-gradient(at top, #0f1622 0%, #0a0e16 60%, #06080d 100%);
+        color: #e8eefc;
+        min-height: 100vh;
+      }
+      a {
+        color: #9fd3ff;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      header {
+        padding: 36px 18px 22px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      .header-inner {
+        max-width: 980px;
+        margin: 0 auto;
+      }
+      .kicker {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.28em;
+        color: #6ee7b7;
+        text-transform: uppercase;
+      }
+      h1 {
+        margin: 8px 0 6px;
+        font-size: 28px;
+        letter-spacing: -0.01em;
+        font-weight: 800;
+        color: #fff;
+      }
+      .tagline {
+        font-size: 15px;
+        color: rgba(232, 238, 252, 0.78);
+        max-width: 620px;
+      }
+      .lang {
+        position: absolute;
+        top: 28px;
+        right: 28px;
+        font-size: 12px;
+        padding: 4px 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      main {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 28px 18px 64px;
+      }
+      .card {
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.02);
+        border-radius: 16px;
+        padding: 18px;
+        margin-bottom: 18px;
+      }
+      .card h2 {
+        margin: 0 0 12px;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: rgba(232, 238, 252, 0.65);
+      }
+      textarea {
+        width: 100%;
+        box-sizing: border-box;
+        min-height: 220px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(0, 0, 0, 0.35);
+        color: #e8eefc;
+        padding: 12px;
+        font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+        font-size: 12px;
+        line-height: 1.45;
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .row + .row {
+        margin-top: 10px;
+      }
+      button {
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.06);
+        color: #e8eefc;
+        padding: 9px 14px;
+        border-radius: 10px;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 600;
+      }
+      button.primary {
+        border-color: rgba(110, 231, 183, 0.4);
+        background: rgba(110, 231, 183, 0.15);
+        color: #c7f9e3;
+      }
+      button.primary:hover {
+        background: rgba(110, 231, 183, 0.25);
+      }
+      button:hover {
+        background: rgba(255, 255, 255, 0.12);
+      }
+      input[type="file"] {
+        font: inherit;
+        color: rgba(232, 238, 252, 0.7);
+      }
+      .result {
+        border-radius: 14px;
+        padding: 16px;
+        margin-top: 10px;
+        border: 1px solid;
+        font-size: 14px;
+      }
+      .result.ok {
+        background: rgba(110, 231, 183, 0.07);
+        border-color: rgba(110, 231, 183, 0.4);
+      }
+      .result.bad {
+        background: rgba(255, 124, 163, 0.07);
+        border-color: rgba(255, 124, 163, 0.45);
+      }
+      .result.warn {
+        background: rgba(252, 211, 77, 0.07);
+        border-color: rgba(252, 211, 77, 0.4);
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        padding: 4px 10px;
+        border-radius: 999px;
+        text-transform: uppercase;
+        border: 1px solid;
+      }
+      .pill.ok {
+        border-color: rgba(110, 231, 183, 0.5);
+        color: #c7f9e3;
+        background: rgba(110, 231, 183, 0.12);
+      }
+      .pill.bad {
+        border-color: rgba(255, 124, 163, 0.55);
+        color: #ffd0de;
+        background: rgba(255, 124, 163, 0.12);
+      }
+      .pill.warn {
+        border-color: rgba(252, 211, 77, 0.5);
+        color: #fde68a;
+        background: rgba(252, 211, 77, 0.12);
+      }
+      .check-list {
+        margin: 12px 0 0;
+        padding: 0;
+        list-style: none;
+        font-size: 13px;
+      }
+      .check-list li {
+        padding: 6px 0;
+        border-top: 1px dashed rgba(255, 255, 255, 0.07);
+      }
+      .check-list li:first-child {
+        border-top: none;
+      }
+      .check-list .ok::before {
+        content: "✓ ";
+        color: #6ee7b7;
+        font-weight: 700;
+      }
+      .check-list .bad::before {
+        content: "✗ ";
+        color: #ff7ca3;
+        font-weight: 700;
+      }
+      .muted {
+        color: rgba(232, 238, 252, 0.65);
+      }
+      code,
+      .mono {
+        font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+        font-size: 12px;
+      }
+      .anchor {
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 14px;
+        font-weight: 700;
+        color: #6ee7b7;
+        word-break: break-all;
+      }
+      ol.algo {
+        margin: 8px 0 0;
+        padding-left: 22px;
+        line-height: 1.6;
+        font-size: 14px;
+        color: rgba(232, 238, 252, 0.86);
+      }
+      ol.algo li {
+        margin-bottom: 6px;
+      }
+      .footer {
+        margin-top: 24px;
+        font-size: 12px;
+        color: rgba(232, 238, 252, 0.55);
+        text-align: center;
+      }
+      .crumbs {
+        font-size: 12px;
+        margin-bottom: 16px;
+      }
+      .crumbs a {
+        color: rgba(232, 238, 252, 0.7);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="header-inner" style="position: relative;">
+        <span class="lang">
+          <a id="langEn" href="?lang=en">EN</a>
+          <span class="muted" style="margin: 0 4px">|</span>
+          <a id="langRu" href="?lang=ru">RU</a>
+        </span>
+        <div class="kicker" id="i18n-kicker">BETKARMA EXCHANGE</div>
+        <h1 id="i18n-pageTitle"></h1>
+        <p class="tagline" id="i18n-tagline"></p>
+      </div>
+    </header>
+
+    <main>
+      <div class="crumbs">
+        <a id="crumbs-home" href="./">←</a>
+      </div>
+
+      <section class="card">
+        <h2 id="i18n-section1Title"></h2>
+        <textarea id="input" spellcheck="false" autocorrect="off" autocapitalize="off"></textarea>
+        <div class="row" style="margin-top: 10px;">
+          <span class="muted" id="i18n-uploadHint"></span>
+          <input id="file" type="file" accept=".txt,text/plain" />
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 id="i18n-section2Title"></h2>
+        <div class="row">
+          <button class="primary" id="btnVerify"></button>
+          <button id="btnClear"></button>
+          <button id="btnSample"></button>
+        </div>
+        <div id="result"></div>
+      </section>
+
+      <section class="card">
+        <h2 id="i18n-anchorTitle"></h2>
+        <p class="muted" id="i18n-anchorIntro"></p>
+        <div class="anchor" id="anchorAddress">bc1q6etkarmarvej0874ghw396eacejlsy5ygew5yk</div>
+        <div class="muted" style="margin-top: 8px;">
+          <span id="i18n-anchorVerify"></span>
+          <a id="anchorLink" href="./exchange/signing-address.json">exchange/signing-address.json</a>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 id="i18n-algoTitle"></h2>
+        <p class="muted" id="i18n-algoIntro"></p>
+        <ol class="algo">
+          <li id="i18n-algoStep1"></li>
+          <li id="i18n-algoStep2"></li>
+          <li id="i18n-algoStep3"></li>
+          <li id="i18n-algoStep4"></li>
+          <li id="i18n-algoStep5"></li>
+        </ol>
+      </section>
+
+      <div class="footer">
+        <span id="i18n-footer"></span>
+        &nbsp;·&nbsp;
+        <a href="https://github.com/grggoo/betkarma-verify" target="_blank" rel="noreferrer" id="i18n-githubLink">View source</a>
+      </div>
+    </main>
+
+    <script type="module">
+      import * as secp from "https://esm.sh/@noble/secp256k1@2.1.0";
+      import { sha256 } from "https://esm.sh/@noble/hashes@1.5.0/sha2";
+      import { ripemd160 } from "https://esm.sh/@noble/hashes@1.5.0/legacy";
+      import { bech32 } from "https://esm.sh/@scure/base@1.1.7";
+
+      // ---------- helpers ----------
+      function bytesEqual(a, b) {
+        if (a.length !== b.length) return false;
+        for (let i = 0; i < a.length; i += 1) if (a[i] !== b[i]) return false;
+        return true;
+      }
+      function toHex(bytes) {
+        return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+      }
+      function fromBase64(s) {
+        const bin = atob(s);
+        const out = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i += 1) out[i] = bin.charCodeAt(i);
+        return out;
+      }
+      function utf8(s) {
+        return new TextEncoder().encode(s);
+      }
+      function varintBytes(n) {
+        if (n < 0xfd) return new Uint8Array([n]);
+        if (n <= 0xffff) {
+          const b = new Uint8Array(3);
+          b[0] = 0xfd;
+          b[1] = n & 0xff;
+          b[2] = (n >> 8) & 0xff;
+          return b;
+        }
+        // We never sign messages longer than 4 GiB; stop here.
+        throw new Error("message too long");
+      }
+
+      // Bitcoin signed message magic + hash:
+      //   doubleSHA256(  "\x18Bitcoin Signed Message:\n" || varint(len) || message  )
+      function magicHash(message) {
+        const prefix = utf8("\x18Bitcoin Signed Message:\n");
+        const msg = utf8(message);
+        const lenBytes = varintBytes(msg.length);
+        const buf = new Uint8Array(prefix.length + lenBytes.length + msg.length);
+        buf.set(prefix, 0);
+        buf.set(lenBytes, prefix.length);
+        buf.set(msg, prefix.length + lenBytes.length);
+        return sha256(sha256(buf));
+      }
+
+      // BIP-137 header byte:
+      //   27 + recid                 : uncompressed P2PKH
+      //   31 + recid                 : compressed P2PKH
+      //   35 + recid                 : P2SH-P2WPKH (compressed)
+      //   39 + recid                 : P2WPKH      (compressed)
+      function parseBip137Signature(sigBytes) {
+        if (sigBytes.length !== 65) throw new Error("bad signature length");
+        const header = sigBytes[0];
+        const rs = sigBytes.subarray(1);
+        let base, compressed = false, segwit = null;
+        if (header >= 27 && header <= 30) {
+          base = 27; compressed = false; segwit = null;
+        } else if (header >= 31 && header <= 34) {
+          base = 31; compressed = true; segwit = null;
+        } else if (header >= 35 && header <= 38) {
+          base = 35; compressed = true; segwit = "p2sh-p2wpkh";
+        } else if (header >= 39 && header <= 42) {
+          base = 39; compressed = true; segwit = "p2wpkh";
+        } else {
+          throw new Error("bad header byte: " + header);
+        }
+        const recovery = header - base;
+        return { rs, recovery, compressed, segwit };
+      }
+
+      function bech32EncodeP2WPKH(pubKey33) {
+        // hash160(pubkey) = RIPEMD160(SHA256(pubkey))
+        const h160 = ripemd160(sha256(pubKey33));
+        // bech32 with witver 0 prepended
+        const words = [0, ...bech32.toWords(h160)];
+        return bech32.encode("bc", words);
+      }
+
+      function recoverP2WPKHAddress(message, signatureBase64) {
+        const sig = fromBase64(signatureBase64);
+        const parsed = parseBip137Signature(sig);
+        // Accept both BIP-137 segwit-flagged (header 39+) and legacy
+        // headers — we'll just re-derive the P2WPKH address regardless
+        // and compare. Many wallets historically emit "compressed"
+        // headers (31+) for SegWit keys.
+        const hash = magicHash(message);
+        // @noble/secp256k1 v2 recoverPublicKey signature is:
+        //   Signature.fromCompact(rs).addRecoveryBit(rec).recoverPublicKey(hash)
+        const compactSig = secp.Signature.fromCompact(parsed.rs).addRecoveryBit(parsed.recovery);
+        const pub = compactSig.recoverPublicKey(hash);
+        const pub33 = pub.toRawBytes(true); // compressed
+        return bech32EncodeP2WPKH(pub33);
+      }
+
+      // ---------- letter parsing ----------
+      const BEGIN = "-----BEGIN BETKARMA LETTER OF GUARANTEE-----";
+      const BEGIN_SIG = "-----BEGIN BETKARMA SIGNATURE-----";
+      const END = "-----END BETKARMA LETTER OF GUARANTEE-----";
+
+      // PGP-cleartext layout:
+      //   -----BEGIN BETKARMA LETTER OF GUARANTEE-----
+      //   Hash: SHA-256                         <- zero or more header lines
+      //                                          <- single blank line
+      //   <body…>
+      //   -----BEGIN BETKARMA SIGNATURE-----
+      //   <key:value lines…>
+      //   -----END BETKARMA LETTER OF GUARANTEE-----
+      function parseLetter(text) {
+        const lines = text.replace(/\r\n/g, "\n").split("\n");
+        const idxBegin = lines.indexOf(BEGIN);
+        const idxSig = lines.indexOf(BEGIN_SIG);
+        const idxEnd = lines.indexOf(END);
+        if (idxBegin < 0 || idxSig <= idxBegin || idxEnd <= idxSig) {
+          throw new Error("PARSE_FAILED");
+        }
+        // Find where the body starts: skip optional `Header: value` lines
+        // immediately after BEGIN, then skip the single blank-line separator.
+        let bodyStart = idxBegin + 1;
+        while (
+          bodyStart < idxSig &&
+          /^[A-Za-z][A-Za-z0-9 _-]*:\s/.test(lines[bodyStart])
+        ) {
+          bodyStart += 1;
+        }
+        if (bodyStart < idxSig && lines[bodyStart] === "") {
+          bodyStart += 1;
+        }
+        const payload = lines.slice(bodyStart, idxSig).join("\n");
+        const sigBlock = lines.slice(idxSig + 1, idxEnd);
+        const fields = {};
+        for (const line of sigBlock) {
+          const m = /^([A-Za-z0-9_]+):\s*(.+)$/.exec(line);
+          if (m) fields[m[1].toLowerCase()] = m[2].trim();
+        }
+        return { payload, fields };
+      }
+
+      // ---------- DOM wiring ----------
+      const T = window.__T;
+      const lang = window.__lang || "en";
+      const i18nMap = {
+        "i18n-kicker": "BETKARMA EXCHANGE",
+        "i18n-pageTitle": T.pageTitle,
+        "i18n-tagline": T.tagline,
+        "i18n-section1Title": T.section1Title,
+        "i18n-section2Title": T.section2Title,
+        "i18n-uploadHint": T.uploadHint,
+        "i18n-anchorTitle": T.anchorTitle,
+        "i18n-anchorIntro": T.anchorIntro,
+        "i18n-anchorVerify": T.anchorVerify,
+        "i18n-algoTitle": T.algoTitle,
+        "i18n-algoIntro": T.algoIntro,
+        "i18n-algoStep1": T.algoStep1,
+        "i18n-algoStep2": T.algoStep2,
+        "i18n-algoStep3": T.algoStep3,
+        "i18n-algoStep4": T.algoStep4,
+        "i18n-algoStep5": T.algoStep5,
+        "i18n-footer": T.footer,
+        "i18n-githubLink": T.githubLink,
+      };
+      Object.entries(i18nMap).forEach(([id, val]) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+      });
+
+      const input = document.getElementById("input");
+      input.placeholder = T.inputPlaceholder;
+      document.getElementById("btnVerify").textContent = T.verifyBtn;
+      document.getElementById("btnClear").textContent = T.clearBtn;
+      document.getElementById("btnSample").textContent = T.sampleBtn;
+      const crumbsHome = document.getElementById("crumbs-home");
+      crumbsHome.textContent = T.backToHome;
+      crumbsHome.href = "./?lang=" + lang;
+
+      document.getElementById("file").addEventListener("change", async (e) => {
+        const f = e.target.files && e.target.files[0];
+        if (!f) return;
+        const txt = await f.text();
+        input.value = txt;
+      });
+
+      document.getElementById("btnClear").addEventListener("click", () => {
+        input.value = "";
+        renderResult(null);
+      });
+
+      document.getElementById("btnSample").addEventListener("click", () => {
+        const body = [
+          "betKarma Exchange — Letter of Guarantee",
+          "This letter is signed by the betKarma public Bitcoin address published at",
+          "  https://betkarma.art/letter-of-guarantee",
+          "Anyone can verify it offline in any BIP-137 wallet, or online at",
+          "  https://grggoo.github.io/betkarma-verify/letter.html",
+          "",
+          "Service:            betKarma",
+          "Clearnet:           https://betkarma.art",
+          "Issuer Page:        https://betkarma.art/letter-of-guarantee",
+          "Verifier:           https://grggoo.github.io/betkarma-verify/letter.html",
+          "",
+          "Swap:               BTC -> XMR",
+          "Status:             DEMO-FAILING",
+          "Order ID:           demo-failing-letter",
+          "",
+          "Algorithm:          bitcoin-message-bip137-p2wpkh",
+        ].join("\n");
+        input.value = [
+          BEGIN,
+          "Hash: SHA-256",
+          "",
+          body,
+          BEGIN_SIG,
+          "Address:        bc1q6etkarmarvej0874ghw396eacejlsy5ygew5yk",
+          "Algorithm:      bitcoin-message-bip137-p2wpkh",
+          "PayloadSha256:  0000000000000000000000000000000000000000000000000000000000000000",
+          "Signature:      AAAA",
+          END,
+          "",
+        ].join("\n");
+      });
+
+      document.getElementById("btnVerify").addEventListener("click", () => verifyNow());
+
+      async function verifyNow() {
+        const text = input.value.trim();
+        if (!text) return;
+
+        let parsed;
+        try {
+          parsed = parseLetter(text);
+        } catch {
+          renderResult({ status: "error", reason: T.parseError, checks: [] });
+          return;
+        }
+        const { payload, fields } = parsed;
+
+        // ---- preview short-circuit ----
+        if ((fields.signature || "").toUpperCase() === "UNSIGNED-PREVIEW") {
+          renderResult({
+            status: "preview",
+            reason: T.previewBody,
+            checks: [
+              {
+                ok: false,
+                text: T.previewBody,
+              },
+            ],
+          });
+          return;
+        }
+
+        // ---- anchor match ----
+        const declaredAddress = (fields.address || "").trim();
+        const ANCHOR = "bc1q6etkarmarvej0874ghw396eacejlsy5ygew5yk";
+        const anchorOk = declaredAddress === ANCHOR;
+
+        // ---- SHA-256 ----
+        const computedSha = toHex(sha256(utf8(payload)));
+        const declaredSha = (fields.payloadsha256 || "").toLowerCase();
+        const shaOk = !!declaredSha && computedSha === declaredSha;
+
+        // ---- BIP-137 signature ----
+        let sigOk = false;
+        let recoveredAddress = "";
+        try {
+          recoveredAddress = recoverP2WPKHAddress(payload, fields.signature);
+          sigOk = recoveredAddress === declaredAddress;
+        } catch (e) {
+          sigOk = false;
+        }
+
+        const checks = [
+          { ok: anchorOk, text: anchorOk ? T.anchorMatch : T.mismatchAnchor },
+          { ok: shaOk, text: shaOk ? T.shaMatch : T.shaMismatch },
+          { ok: sigOk, text: sigOk ? T.sigValid : T.sigInvalid },
+        ];
+        const allOk = checks.every((c) => c.ok);
+        renderResult({
+          status: allOk ? "ok" : "bad",
+          checks,
+          declaredAddress,
+          recoveredAddress,
+          declaredSha,
+          computedSha,
+        });
+      }
+
+      function renderResult(r) {
+        const host = document.getElementById("result");
+        host.innerHTML = "";
+        if (!r) return;
+
+        const wrap = document.createElement("div");
+        let pill;
+        if (r.status === "ok") {
+          wrap.className = "result ok";
+          pill = `<span class="pill ok">${T.statusValid}</span>`;
+        } else if (r.status === "bad") {
+          wrap.className = "result bad";
+          pill = `<span class="pill bad">${T.statusInvalid}</span>`;
+        } else if (r.status === "preview") {
+          wrap.className = "result warn";
+          pill = `<span class="pill warn">${T.statusPreview}</span>`;
+        } else {
+          wrap.className = "result bad";
+          pill = `<span class="pill bad">${T.statusError}</span>`;
+        }
+        const head = document.createElement("div");
+        head.innerHTML = pill;
+        wrap.appendChild(head);
+
+        if (r.reason && r.status === "preview") {
+          const p = document.createElement("p");
+          p.style.marginTop = "10px";
+          p.textContent = r.reason;
+          wrap.appendChild(p);
+        }
+        if (r.status === "error") {
+          const p = document.createElement("p");
+          p.style.marginTop = "10px";
+          p.textContent = r.reason;
+          wrap.appendChild(p);
+        }
+
+        if (r.checks && r.checks.length) {
+          const ul = document.createElement("ul");
+          ul.className = "check-list";
+          r.checks.forEach((c) => {
+            const li = document.createElement("li");
+            li.className = c.ok ? "ok" : "bad";
+            li.textContent = c.text;
+            ul.appendChild(li);
+          });
+          wrap.appendChild(ul);
+        }
+
+        if (r.declaredAddress || r.recoveredAddress) {
+          const dl = document.createElement("div");
+          dl.className = "mono muted";
+          dl.style.marginTop = "12px";
+          dl.innerHTML =
+            "declared address: <b>" +
+            (r.declaredAddress || "—") +
+            "</b><br>recovered address: <b>" +
+            (r.recoveredAddress || "—") +
+            "</b><br>computed sha256: <b>" +
+            (r.computedSha || "—") +
+            "</b><br>declared sha256: <b>" +
+            (r.declaredSha || "—") +
+            "</b>";
+          wrap.appendChild(dl);
+        }
+
+        host.appendChild(wrap);
+      }
+    </script>
+  </body>
+</html>
