@@ -1,6 +1,6 @@
 # BetKarma Provably Fair Anchors
 
-This repository is an append-only audit log for BetKarma provably fair seedsets and reveals.
+This repository is an append-only audit log for BetKarma provably fair seedsets and reveals, **and** the public trust anchor for the BTC -> XMR exchange Letter of Guarantee.
 
 Supported games: `coinflip38`, `karmapoker`, `karmaladder`, `dice`.
 
@@ -15,6 +15,15 @@ Supported games: `coinflip38`, `karmapoker`, `karmaladder`, `dice`.
 
 - `rules/<rulesVersion>.json`  
   Human-readable rules snapshot for each game version.
+
+- `exchange/signing-address.json`  
+  Trust anchor for the BTC -> XMR exchange Letter of Guarantee. Publishes the public BTC signing address, the algorithm (`bitcoin-message-bip137-p2wpkh`), and a link back to the issuer page. The key is dedicated, holds no funds, and never rotates silently — any rotation is committed here first.
+
+- `letter.html`  
+  Self-contained HTML/JS verifier for letter-of-guarantee artifacts. Drop in the `.txt` letter (or paste the text), and the page checks the SHA-256 + Bitcoin message signature in your browser. No data leaves the page.
+
+- `verify.html`  
+  Casino bet receipt verifier (recompute outcomes from anchored seedsets).
 
 ## Format
 

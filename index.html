@@ -13,6 +13,11 @@
           en: {
             pageTitle: "BetKarma - Provably Fair Anchors",
             headerTagline: "Public append-only log of seedset commits/reveals and rules snapshots.",
+            exchangeBannerTitle: "Exchange — Letter of Guarantee",
+            exchangeBannerText:
+              "BTC -> XMR exchange orders are accompanied by a Bitcoin-signed letter of guarantee. Verify any letter against the published signer:",
+            exchangeBannerOpen: "Open letter verifier",
+            exchangeBannerAnchor: "Signer anchor:",
             fairPlayTitle: "Our fair play commitment",
             fairPlayStatement: "We publish every game result to a public log so you can verify that outcomes are random and correct. Before a round starts, we commit a hash of the server seed. After the round ends, we reveal the seed and publish it here. Anyone can recompute the outcome and confirm it matches.",
             fairPlayWhat: "What this proves",
@@ -45,6 +50,11 @@
           ru: {
             pageTitle: "BetKarma — Якоря Provably Fair",
             headerTagline: "Публичный дополняемый лог коммитов/раскрытий сидов и снимков правил.",
+            exchangeBannerTitle: "Exchange — гарантийное письмо",
+            exchangeBannerText:
+              "К каждому ордеру обмена BTC -> XMR прилагается гарантийное письмо, подписанное Bitcoin-ключом. Проверьте любое письмо против опубликованного подписанта:",
+            exchangeBannerOpen: "Открыть верификатор писем",
+            exchangeBannerAnchor: "Якорь подписанта:",
             fairPlayTitle: "Наш принцип честной игры",
             fairPlayStatement: "Мы публикуем каждый результат в открытый лог, чтобы вы могли убедиться, что исходы случайны и корректны. До начала раунда мы фиксируем хеш серверного сида. После завершения раунда — раскрываем сид и публикуем здесь. Любой может пересчитать исход и проверить соответствие.",
             fairPlayWhat: "Что это доказывает",
@@ -226,6 +236,20 @@
     </header>
 
     <main>
+      <section id="exchangeBanner" style="margin: 14px 0 22px; padding: 16px; border: 1px solid rgba(110,231,183,0.35); border-radius: 14px; background: rgba(110,231,183,0.06);">
+        <div style="font-weight: 700; color: #c7f9e3; letter-spacing: 0.08em; text-transform: uppercase; font-size: 12px;" id="i18n-exchangeBannerTitle"></div>
+        <p style="margin: 8px 0 6px;" id="i18n-exchangeBannerText"></p>
+        <div class="muted" style="font-size: 13px;">
+          <span id="i18n-exchangeBannerAnchor"></span>
+          <code id="exchangeSignerAnchor">bc1q6etkarmarvej0874ghw396eacejlsy5ygew5yk</code>
+          <span class="muted">·</span>
+          <a id="exchangeAnchorJson" href="exchange/signing-address.json">signing-address.json</a>
+        </div>
+        <div style="margin-top: 10px;">
+          <a id="letterVerifierLink" href="letter.html" class="pill" style="display: inline-block; color: #c7f9e3; border-color: rgba(110,231,183,0.45); background: rgba(110,231,183,0.12);"></a>
+        </div>
+      </section>
+
       <h2 style="margin: 22px 0 10px;" id="i18n-sectionVerifier"></h2>
       <p class="muted">
         <a id="verifierLink" href=""> </a>
@@ -263,6 +287,9 @@
           "i18n-pageTitle": "pageTitle",
           "i18n-headerTagline": "headerTagline",
           "i18n-structure": "structure",
+          "i18n-exchangeBannerTitle": "exchangeBannerTitle",
+          "i18n-exchangeBannerText": "exchangeBannerText",
+          "i18n-exchangeBannerAnchor": "exchangeBannerAnchor",
           "i18n-fairPlayTitle": "fairPlayTitle",
           "i18n-fairPlayStatement": "fairPlayStatement",
           "i18n-fairPlayWhat": "fairPlayWhat",
@@ -291,6 +318,11 @@
         if (verifierLink) {
           verifierLink.href = "verify.html?lang=" + lang;
           verifierLink.textContent = T.verifierOpen || "Open verifier (paste a receipt JSON)";
+        }
+        var letterVerifierLink = document.getElementById("letterVerifierLink");
+        if (letterVerifierLink) {
+          letterVerifierLink.href = "letter.html?lang=" + lang;
+          letterVerifierLink.textContent = T.exchangeBannerOpen || "Open letter verifier";
         }
       })();
 
