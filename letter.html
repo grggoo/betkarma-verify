@@ -610,13 +610,37 @@
         }
 
         // --------- letter parser ----------
+        function findMarkerLine(lines, marker) {
+          // Trim each line before matching so a stray BOM / trailing space
+          // on a marker line doesn't defeat an exact compare. trim() also
+          // strips U+FEFF, so a leading BOM on the BEGIN line is tolerated.
+          for (var i = 0; i < lines.length; i += 1) {
+            if (lines[i].trim() === marker) return i;
+          }
+          return -1;
+        }
         function parseLetter(text) {
-          var lines = text.replace(/\r\n/g, "\n").split("\n");
-          var idxBegin = lines.indexOf(BEGIN);
-          var idxSig = lines.indexOf(BEGIN_SIG);
-          var idxEnd = lines.indexOf(END);
+          // Strip a leading UTF-8 BOM / zero-width chars that some editors,
+          // terminals or clipboard paths prepend — they would otherwise
+          // glue onto the first marker line and break an exact match.
+          var clean = text.replace(/^\uFEFF/, "").replace(/[\u200B-\u200D\u2060]/g, "");
+          // Normalise CRLF *and* lone CR (old-Mac / mangled paste) to LF
+          // so split() yields real lines instead of one giant line.
+          var lines = clean.replace(/\r\n?/g, "\n").split("\n");
+          var idxBegin = findMarkerLine(lines, BEGIN);
+          var idxSig = findMarkerLine(lines, BEGIN_SIG);
+          var idxEnd = findMarkerLine(lines, END);
           if (idxBegin < 0 || idxSig <= idxBegin || idxEnd <= idxSig) {
-            throw new Error("PARSE_FAILED");
+            // Name the offender so the failure is debuggable at a glance.
+            var missing = [];
+            if (idxBegin < 0) missing.push("BEGIN");
+            if (idxSig < 0) missing.push("BEGIN SIGNATURE");
+            if (idxEnd < 0) missing.push("END");
+            throw new Error(
+              missing.length
+                ? "PARSE_FAILED:missing marker(s): " + missing.join(", ")
+                : "PARSE_FAILED:markers out of order"
+            );
           }
           var bodyStart = idxBegin + 1;
           while (
