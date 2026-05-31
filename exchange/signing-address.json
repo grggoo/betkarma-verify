@@ -1,0 +1,9 @@
+{
+  "service": "betkarma",
+  "purpose": "exchange-letter-of-guarantee",
+  "algorithm": "bitcoin-message-bip137-p2wpkh",
+  "address": "bc1q6etkarmarvej0874ghw396eacejlsy5ygew5yk",
+  "notes": "Dedicated non-funds key. Holds no balance. Used only to sign Letter of Guarantee artifacts emitted by the betKarma BTC -> XMR exchange (public order page). Trust anchor.",
+  "verify_url": "https://grggoo.github.io/betkarma-verify/letter.html",
+  "issuer_page": "https://betkarma.art/letter-of-guarantee"
+}

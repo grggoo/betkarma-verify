@@ -672,7 +672,10 @@
           cryptoReady = Promise.all([
             import("https://esm.sh/@noble/secp256k1@2.1.0"),
             import("https://esm.sh/@noble/hashes@1.5.0/sha2"),
-            import("https://esm.sh/@noble/hashes@1.5.0/legacy"),
+            // ripemd160 lives at the dedicated subpath in @noble/hashes 1.5.0.
+            // The `/legacy` bundle only exists in 2.x, so importing it here
+            // 404'd on esm.sh and silently killed the whole verify flow.
+            import("https://esm.sh/@noble/hashes@1.5.0/ripemd160"),
             import("https://esm.sh/@scure/base@1.1.7"),
           ]).then(function (mods) {
             return {
@@ -771,7 +774,7 @@
           summary.textContent =
             r.status === "ok"      ? t.summaryValid :
             r.status === "preview" ? t.summaryPreview :
-            r.status === "error"   ? t.summaryError :
+            r.status === "error"   ? (r.reason || t.summaryError) :
             t.summaryInvalid;
           wrap.appendChild(summary);
 
