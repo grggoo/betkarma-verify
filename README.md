@@ -20,7 +20,7 @@ Supported games: `coinflip38`, `karmapoker`, `karmaladder`, `dice`.
   Trust anchor for the BTC -> XMR exchange Letter of Guarantee. Publishes the public BTC signing address, the algorithm (`bitcoin-message-bip137-p2wpkh`), and a link back to the issuer page. The key is dedicated, holds no funds, and never rotates silently — any rotation is committed here first.
 
 - `letter.html`  
-  Self-contained HTML/JS verifier for letter-of-guarantee artifacts. Drop in the `.txt` letter (or paste the text), and the page checks the SHA-256 + Bitcoin message signature in your browser. No data leaves the page.
+  Self-contained HTML/JS verifier for letter-of-guarantee artifacts. Paste the **full** letter (from `-----BEGIN BETKARMA LETTER OF GUARANTEE-----` through `-----END BETKARMA LETTER OF GUARANTEE-----`) or upload the `.txt` from the order page. Checks SHA-256 of the signed body + BIP-137 P2WPKH recovery against `exchange/signing-address.json`. Crypto loads lazily from esm.sh (`@noble/secp256k1@2.1.0`, `@noble/hashes@1.5.0/sha2`, `@noble/hashes@1.5.0/ripemd160`, `@scure/base@1.1.7`). **Do not** import `@noble/hashes@1.5.0/legacy` — that path 404s and breaks all verifications (fixed 2026-05-31, commit `966994a`). No data leaves the page.
 
 - `verify.html`  
   Casino bet receipt verifier (recompute outcomes from anchored seedsets).
