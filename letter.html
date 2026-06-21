@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>BetKarma Exchange — Letter of Guarantee verifier</title>
-    <meta name="description" content="Verify a betKarma BTC->XMR letter of guarantee against the published trust anchor. Runs entirely in your browser." />
+    <meta name="description" content="Verify a betKarma exchange letter of guarantee against the published trust anchor. Runs entirely in your browser." />
     <style>
       :root {
         color-scheme: dark;
@@ -332,7 +332,7 @@
       <div class="kicker">betKarma exchange</div>
       <h1 id="page-title">Letter of Guarantee verifier</h1>
       <p class="tagline" id="tagline">
-        Paste a betKarma BTC→XMR letter and check its Bitcoin-message signature
+        Paste a betKarma exchange letter and check its Bitcoin-message signature
         against the published trust anchor. Runs entirely in your browser — we
         never see what you paste.
       </p>
@@ -413,8 +413,18 @@
       // ============================================================
 
       (function () {
-        var lang = (new URLSearchParams(location.search).get("lang") || "").toLowerCase();
-        if (lang !== "ru") lang = "en";
+        // Locale: explicit ?lang -> saved choice -> browser language -> en.
+        // Keeps visitors arriving from the /ru site in Russian even when the
+        // link did not carry an explicit ?lang param.
+        var qlang = (new URLSearchParams(location.search).get("lang") || "").toLowerCase();
+        var savedLang = "";
+        try { savedLang = (localStorage.getItem("bk_verify_lang") || "").toLowerCase(); } catch (e) {}
+        var navLang = (navigator.language || navigator.userLanguage || "").toLowerCase();
+        var lang =
+          (qlang === "ru" || qlang === "en") ? qlang :
+          (savedLang === "ru" || savedLang === "en") ? savedLang :
+          (navLang.indexOf("ru") === 0) ? "ru" : "en";
+        try { localStorage.setItem("bk_verify_lang", lang); } catch (e) {}
 
         var ANCHOR = "bc1q6etkarmarvej0874ghw396eacejlsy5ygew5yk";
         var BEGIN = "-----BEGIN BETKARMA LETTER OF GUARANTEE-----";
@@ -425,7 +435,7 @@
           en: {
             pageTitle: "Letter of Guarantee verifier",
             tagline:
-              "Paste a betKarma BTC→XMR letter and check its Bitcoin-message signature against the published trust anchor. Runs entirely in your browser — we never see what you paste.",
+              "Paste a betKarma exchange letter and check its Bitcoin-message signature against the published trust anchor. Runs entirely in your browser — we never see what you paste.",
             sectionInput: "1 — paste the letter or upload the .txt",
             inputHint:
               "Use the Download .txt button on the order page to get the full letter, then paste it below or drop the file.",
@@ -494,7 +504,7 @@
           ru: {
             pageTitle: "Верификатор Letter of Guarantee",
             tagline:
-              "Вставьте письмо betKarma BTC→XMR и проверьте его Bitcoin-подпись против опубликованной точки доверия. Работает только в вашем браузере — мы не видим того, что вы вставляете.",
+              "Вставьте письмо обмена betKarma и проверьте его Bitcoin-подпись против опубликованной точки доверия. Работает только в вашем браузере — мы не видим того, что вы вставляете.",
             sectionInput: "1 — вставьте письмо или загрузите .txt",
             inputHint:
               "Нажмите Download .txt на странице ордера, получите полный текст письма и вставьте сюда (либо перетащите файл).",

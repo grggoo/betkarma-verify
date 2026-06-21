@@ -6,9 +6,19 @@
     <title>BetKarma - Receipt Verifier</title>
     <script>
       (function() {
+        // Locale: explicit ?lang -> saved choice -> browser language -> en.
+        // Keeps visitors arriving from the /ru site in Russian even when the
+        // link did not carry an explicit ?lang param.
         var params = new URLSearchParams(location.search);
-        var lang = (params.get("lang") || "").toLowerCase();
-        if (lang !== "ru") lang = "en";
+        var qlang = (params.get("lang") || "").toLowerCase();
+        var saved = "";
+        try { saved = (localStorage.getItem("bk_verify_lang") || "").toLowerCase(); } catch (e) {}
+        var nav = (navigator.language || navigator.userLanguage || "").toLowerCase();
+        var lang =
+          (qlang === "ru" || qlang === "en") ? qlang :
+          (saved === "ru" || saved === "en") ? saved :
+          (nav.indexOf("ru") === 0) ? "ru" : "en";
+        try { localStorage.setItem("bk_verify_lang", lang); } catch (e) {}
         var T = {
           en: {
             pageTitle: "BetKarma - Receipt Verifier",

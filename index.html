@@ -6,80 +6,164 @@
     <title>BetKarma - Provably Fair Anchors</title>
     <script>
       (function() {
+        // Locale resolution order: explicit ?lang -> saved choice -> browser
+        // language -> English. This fixes visitors arriving from the /ru
+        // site landing on the English page: even without a ?lang param we
+        // now honour their browser language and remembered preference.
         var params = new URLSearchParams(location.search);
-        var lang = (params.get("lang") || "").toLowerCase();
-        if (lang !== "ru") lang = "en";
+        var qlang = (params.get("lang") || "").toLowerCase();
+        var saved = "";
+        try { saved = (localStorage.getItem("bk_verify_lang") || "").toLowerCase(); } catch (e) {}
+        var nav = (navigator.language || navigator.userLanguage || "").toLowerCase();
+        var lang =
+          (qlang === "ru" || qlang === "en") ? qlang :
+          (saved === "ru" || saved === "en") ? saved :
+          (nav.indexOf("ru") === 0) ? "ru" : "en";
+        // Persist whatever we resolved so sibling pages (letter.html,
+        // verify.html) and the next visit stay in the same language.
+        try { localStorage.setItem("bk_verify_lang", lang); } catch (e) {}
+
         var T = {
           en: {
-            pageTitle: "BetKarma - Provably Fair Anchors",
-            headerTagline: "Public append-only log of seedset commits/reveals and rules snapshots.",
-            exchangeBannerTitle: "Exchange — Letter of Guarantee",
-            exchangeBannerText:
-              "BTC -> XMR exchange orders are accompanied by a Bitcoin-signed letter of guarantee. Verify any letter against the published signer:",
-            exchangeBannerOpen: "Open letter verifier",
-            exchangeBannerAnchor: "Signer anchor:",
-            fairPlayTitle: "Our fair play commitment",
-            fairPlayStatement: "We publish every game result to a public log so you can verify that outcomes are random and correct. Before a round starts, we commit a hash of the server seed. After the round ends, we reveal the seed and publish it here. Anyone can recompute the outcome and confirm it matches.",
-            fairPlayWhat: "What this proves",
-            fairPlayWhatText: "That the outcome was determined by a cryptographically random process, not chosen afterward. The server could not have changed the result once your bet was placed.",
-            fairPlayVerify: "How to verify",
-            fairPlayVerifyText: "In the app: History → Casino. Each bet has a receipt. Copy it and paste it in the Verifier below. We compare it to our published anchors and recompute the outcome.",
-            fairPlayDisclosure: "Why not instant?",
-            fairPlayDisclosureText: "We reveal seeds and publish to this log once per hour, after the seedset rotates and all active rounds finish. That protects in-progress games. Your bets are verifiable within about an hour.",
-            structure: "Structure:",
-            sectionVerifier: "Verifier",
-            verifierOpen: "Open verifier (paste a receipt JSON)",
-            sectionAnchors: "Anchors",
-            sectionHowToVerify: "How to verify",
+            pageTitle: "betKarma — Public Proof & Verification",
+            brandTag: "Public proof log",
+            heroKicker: "PUBLIC PROOF",
+            heroTitle: "Check betKarma for yourself.",
+            heroLead:
+              "This is betKarma's public, tamper-proof record. Use it to independently confirm two things: that our games are fair, and that every exchange order is backed by a signed guarantee. No account needed — every check runs in your browser.",
+            whatTitle: "What can I verify here?",
+            pathCasinoBadge: "Casino",
+            pathCasinoTitle: "A game result was fair",
+            pathCasinoText:
+              "Every bet gets a cryptographic receipt. We lock in the server seed before you play and reveal it afterwards, so you can recompute the outcome and confirm nothing was changed.",
+            pathCasinoCta: "Open the bet verifier",
+            pathCasinoWhere: "Where to get it: in the app open History → Casino → a bet → Copy receipt.",
+            pathLetterBadge: "Exchange",
+            pathLetterTitle: "An exchange order is genuine",
+            pathLetterText:
+              "Each swap order comes with a Letter of Guarantee signed by betKarma's Bitcoin key. Paste the letter to confirm the locked rate, amounts and addresses really came from us and weren't altered.",
+            pathLetterCta: "Open the letter verifier",
+            pathLetterWhere: "Where to get it: on the exchange order page press Download .txt.",
+            pathLetterPairs:
+              "Covers every swap direction — BTC → XMR, BTC → BTC, USDT (TRON) → USDT (TRON), USDT (TRON) → XMR.",
+            signerLabel: "Signing address (trust anchor):",
+            howTitle: "How fair play is proven",
+            howLead: "Three steps. You don't have to trust us — the maths does the work.",
+            howStep1Title: "Commit",
+            howStep1Text:
+              "Before a round we publish a SHA-256 hash of the secret server seed. It is locked in and cannot be changed later.",
+            howStep2Title: "Play",
+            howStep2Text:
+              "Your bet is combined with that committed seed, so the outcome is fixed by data that already existed.",
+            howStep3Title: "Reveal",
+            howStep3Text:
+              "After the round we publish the seed here. Anyone can hash it, confirm it matches the commit, and recompute the result.",
+            howWhy:
+              "Why not instant? Seeds are revealed once per hour, after the seed set rotates and active rounds finish — this protects games still in progress. Your bets become verifiable within about an hour.",
+            logTitle: "Live public log",
+            logLead:
+              "The append-only record itself, served straight from GitHub. Counts move on every hourly publish.",
+            structure: "Files:",
+            whereTitle: "Where do I get each item?",
+            whereColWhat: "Item",
+            whereColWhere: "Where to find it",
+            whereReceiptWhat: "Casino bet receipt",
+            whereReceiptWhere: "App → History → Casino → pick a bet → Copy receipt",
+            whereLetterWhat: "Exchange Letter of Guarantee",
+            whereLetterWhere: "Exchange order page → Download .txt",
+            whereAnchorWhat: "Signing address (anchor)",
+            whereAnchorWhere: "Published here as signing-address.json",
+            advancedTitle: "Advanced & manual verification",
+            advancedLead:
+              "Prefer to verify by hand or with your own tools? Here are the raw steps and a built-in hash checker.",
+            sectionHowToVerify: "Manual receipt check",
             step1: "Get a receipt from the app or verify endpoint (gameId, seedSetId, serverSeedHash, rulesVersion, rngVersion).",
             step2: "Open anchors/<gameId>/seedsets.jsonl and find the line with this seedSetId and serverSeedHashHex.",
-            step3: "When the seedset is revealed, reveals.jsonl will include serverSeedHex. Verify: sha256(serverSeedHex) == serverSeedHashHex.",
-            step4: "Recompute the outcome using the public rules and receipts.",
-            sectionQuickReveal: "Quick reveal hash check (sha256)",
-            pasteRevealLine: "Paste one JSON line from reveals.jsonl and click Verify.",
-            btnVerify: "Verify reveal hash",
-            loading: "Loading...",
+            step3: "When the seedset is revealed, reveals.jsonl will include serverSeedHex. Check: sha256(serverSeedHex) == serverSeedHashHex.",
+            step4: "Recompute the outcome using the public rules and the receipt.",
+            sectionQuickReveal: "Quick reveal-hash check (sha256)",
+            pasteRevealLine: "Paste one JSON line from reveals.jsonl and click the button.",
+            btnVerify: "Check reveal hash",
+            verifierOpen: "Open the full receipt verifier",
+            footerNote: "Everything here is public and verifiable offline. betKarma cannot alter past entries.",
+            footerSource: "View source repository",
+            loading: "Loading…",
             noCommits: "No commits yet for this game.",
-            revealedYes: "YES",
-            revealedNo: "NO",
-            resultOk: "OK",
+            revealedYes: "revealed",
+            revealedNo: "awaiting reveal",
+            resultOk: "MATCH",
             resultMismatch: "MISMATCH",
             errorLabel: "Error:",
             errorLoading: "Error loading anchors:"
           },
           ru: {
-            pageTitle: "BetKarma — Якоря Provably Fair",
-            headerTagline: "Публичный дополняемый лог коммитов/раскрытий сидов и снимков правил.",
-            exchangeBannerTitle: "Exchange — гарантийное письмо",
-            exchangeBannerText:
-              "К каждому ордеру обмена BTC -> XMR прилагается гарантийное письмо, подписанное Bitcoin-ключом. Проверьте любое письмо против опубликованного подписанта:",
-            exchangeBannerOpen: "Открыть верификатор писем",
-            exchangeBannerAnchor: "Якорь подписанта:",
-            fairPlayTitle: "Наш принцип честной игры",
-            fairPlayStatement: "Мы публикуем каждый результат в открытый лог, чтобы вы могли убедиться, что исходы случайны и корректны. До начала раунда мы фиксируем хеш серверного сида. После завершения раунда — раскрываем сид и публикуем здесь. Любой может пересчитать исход и проверить соответствие.",
-            fairPlayWhat: "Что это доказывает",
-            fairPlayWhatText: "Что исход определён криптографически случайным процессом, а не подобран после факта. Сервер не мог изменить результат после вашей ставки.",
-            fairPlayVerify: "Как проверить",
-            fairPlayVerifyText: "В приложении: История → Казино. У каждой ставки есть чек. Скопируйте и вставьте в верификатор ниже. Мы сверим его с публичными якорями и пересчитаем исход.",
-            fairPlayDisclosure: "Почему не мгновенно?",
-            fairPlayDisclosureText: "Раскрытие сидов и публикация в этот лог — раз в час, после ротации сидсета и завершения всех активных раундов. Так защищаются идущие игры. Ваши ставки можно проверить примерно в течение часа.",
-            structure: "Структура:",
-            sectionVerifier: "Верификатор",
-            verifierOpen: "Открыть верификатор (вставьте JSON чека)",
-            sectionAnchors: "Якоря",
-            sectionHowToVerify: "Как проверить",
+            pageTitle: "betKarma — Публичное доказательство и проверка",
+            brandTag: "Публичный лог доказательств",
+            heroKicker: "ПУБЛИЧНОЕ ДОКАЗАТЕЛЬСТВО",
+            heroTitle: "Проверьте betKarma сами.",
+            heroLead:
+              "Это публичная, защищённая от подмены запись betKarma. С её помощью можно самостоятельно убедиться в двух вещах: что игры честны и что за каждым ордером обмена стоит подписанная гарантия. Аккаунт не нужен — все проверки выполняются прямо в вашем браузере.",
+            whatTitle: "Что здесь можно проверить?",
+            pathCasinoBadge: "Казино",
+            pathCasinoTitle: "Что результат игры был честным",
+            pathCasinoText:
+              "У каждой ставки есть криптографический чек. Мы фиксируем серверный сид до начала игры и раскрываем его после — вы можете пересчитать исход и убедиться, что ничего не меняли.",
+            pathCasinoCta: "Открыть проверку ставки",
+            pathCasinoWhere: "Где взять: в приложении откройте История → Казино → ставка → Скопировать чек.",
+            pathLetterBadge: "Обмен",
+            pathLetterTitle: "Что ордер обмена настоящий",
+            pathLetterText:
+              "К каждому ордеру прилагается гарантийное письмо, подписанное Bitcoin-ключом betKarma. Вставьте письмо, чтобы подтвердить, что зафиксированный курс, суммы и адреса действительно от нас и не были изменены.",
+            pathLetterCta: "Открыть проверку письма",
+            pathLetterWhere: "Где взять: на странице ордера нажмите Download .txt.",
+            pathLetterPairs:
+              "Охватывает все направления обмена — BTC → XMR, BTC → BTC, USDT (TRON) → USDT (TRON), USDT (TRON) → XMR.",
+            signerLabel: "Адрес подписи (точка доверия):",
+            howTitle: "Как доказывается честная игра",
+            howLead: "Три шага. Доверять нам не нужно — всё доказывает математика.",
+            howStep1Title: "Фиксация",
+            howStep1Text:
+              "До раунда мы публикуем SHA-256 хеш секретного серверного сида. Он зафиксирован и не может быть изменён позже.",
+            howStep2Title: "Игра",
+            howStep2Text:
+              "Ваша ставка комбинируется с зафиксированным сидом — исход определяется данными, которые уже существовали.",
+            howStep3Title: "Раскрытие",
+            howStep3Text:
+              "После раунда мы публикуем сид здесь. Любой может его хешировать, сверить с фиксацией и пересчитать результат.",
+            howWhy:
+              "Почему не мгновенно? Сиды раскрываются раз в час, после ротации сид-сета и завершения активных раундов — так защищаются идущие игры. Ваши ставки становятся проверяемыми примерно в течение часа.",
+            logTitle: "Живой публичный лог",
+            logLead:
+              "Сама дополняемая запись, отдаётся напрямую с GitHub. Счётчики растут при каждой ежечасной публикации.",
+            structure: "Файлы:",
+            whereTitle: "Где взять каждый элемент?",
+            whereColWhat: "Элемент",
+            whereColWhere: "Где найти",
+            whereReceiptWhat: "Чек ставки казино",
+            whereReceiptWhere: "Приложение → История → Казино → выбрать ставку → Скопировать чек",
+            whereLetterWhat: "Гарантийное письмо обмена",
+            whereLetterWhere: "Страница ордера обмена → Download .txt",
+            whereAnchorWhat: "Адрес подписи (якорь)",
+            whereAnchorWhere: "Опубликован здесь как signing-address.json",
+            advancedTitle: "Расширенная и ручная проверка",
+            advancedLead:
+              "Хотите проверить вручную или своими инструментами? Ниже — сырые шаги и встроенный калькулятор хеша.",
+            sectionHowToVerify: "Ручная проверка чека",
             step1: "Получите чек в приложении или через verify endpoint (gameId, seedSetId, serverSeedHash, rulesVersion, rngVersion).",
             step2: "Откройте anchors/<gameId>/seedsets.jsonl и найдите строку с этим seedSetId и serverSeedHashHex.",
             step3: "Когда сидсет раскрыт, в reveals.jsonl будет serverSeedHex. Проверьте: sha256(serverSeedHex) == serverSeedHashHex.",
-            step4: "Пересчитайте исход по публичным правилам и чекам.",
+            step4: "Пересчитайте исход по публичным правилам и чеку.",
             sectionQuickReveal: "Быстрая проверка хеша раскрытия (sha256)",
-            pasteRevealLine: "Вставьте одну строку JSON из reveals.jsonl и нажмите Проверить.",
+            pasteRevealLine: "Вставьте одну строку JSON из reveals.jsonl и нажмите кнопку.",
             btnVerify: "Проверить хеш раскрытия",
-            loading: "Загрузка...",
+            verifierOpen: "Открыть полный верификатор чеков",
+            footerNote: "Всё здесь публично и проверяемо офлайн. betKarma не может изменить прошлые записи.",
+            footerSource: "Открыть репозиторий исходников",
+            loading: "Загрузка…",
             noCommits: "Пока нет коммитов для этой игры.",
-            revealedYes: "ДА",
-            revealedNo: "НЕТ",
-            resultOk: "ОК",
+            revealedYes: "раскрыт",
+            revealedNo: "ожидает раскрытия",
+            resultOk: "СОВПАДАЕТ",
             resultMismatch: "НЕ СОВПАДАЕТ",
             errorLabel: "Ошибка:",
             errorLoading: "Ошибка загрузки якорей:"
@@ -92,190 +176,547 @@
       })();
     </script>
     <style>
+      :root {
+        color-scheme: light;
+        --bg: #f4f6fb;
+        --surface: #ffffff;
+        --surface-2: #f8fafc;
+        --fg: #0f172a;
+        --muted: #5b6675;
+        --faint: #8a93a3;
+        --line: #e4e8ef;
+        --line-strong: #d4dae3;
+        --accent: #0e7a52;
+        --accent-ink: #0b5f40;
+        --accent-soft: #e8f6ef;
+        --accent-line: #bfe6d4;
+        --brand: #b8860b;
+        --ok: #0e7a52;
+        --bad: #c1342c;
+        --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
       body {
-        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
-        margin: 0;
-        background: #0b0f17;
-        color: #e8eefc;
-      }
-      a {
-        color: #9fd3ff;
-        text-decoration: none;
-      }
-      a:hover {
-        text-decoration: underline;
-      }
-      header {
-        padding: 28px 18px 32px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-        background: rgba(255, 255, 255, 0.02);
-      }
-      .header-intro {
-        max-width: 640px;
-        margin-top: 20px;
-        padding-top: 20px;
-        border-top: 1px solid rgba(255, 255, 255, 0.06);
-      }
-      .header-intro h2 {
-        font-size: 15px;
-        font-weight: 600;
-        margin: 0 0 10px;
-        color: #e8eefc;
-      }
-      .header-intro p {
-        font-size: 14px;
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+        background: var(--bg);
+        color: var(--fg);
         line-height: 1.55;
-        margin: 0 0 14px;
-        color: rgba(232, 238, 252, 0.9);
+        -webkit-font-smoothing: antialiased;
       }
-      .header-intro p:last-child {
-        margin-bottom: 0;
-      }
-      .header-intro .note {
-        font-size: 13px;
-        color: rgba(232, 238, 252, 0.75);
-      }
-      main {
-        max-width: 980px;
-        margin: 0 auto;
-        padding: 18px;
-      }
-      .grid {
-        display: grid;
-        gap: 14px;
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      }
-      .card {
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 14px;
-        padding: 14px;
-        background: rgba(255, 255, 255, 0.02);
-      }
-      .muted {
-        color: rgba(232, 238, 252, 0.7);
+      a { color: var(--accent-ink); text-decoration: none; font-weight: 600; }
+      a:hover { text-decoration: underline; }
+      .muted { color: var(--muted); }
+      .faint { color: var(--faint); }
+      code, .mono {
+        font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+        font-size: 12.5px;
       }
       code {
-        background: rgba(255, 255, 255, 0.06);
-        padding: 2px 6px;
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        padding: 1px 6px;
         border-radius: 6px;
+        color: #334155;
       }
-      .ok {
-        color: #7cffb2;
+
+      /* ---------- top bar ---------- */
+      .topbar {
+        background: var(--surface);
+        border-bottom: 1px solid var(--line);
       }
-      .bad {
-        color: #ff7ca3;
-      }
-      .row {
+      .topbar-inner {
+        max-width: 1020px;
+        margin: 0 auto;
+        padding: 14px 20px;
         display: flex;
+        align-items: center;
         justify-content: space-between;
-        gap: 10px;
-        flex-wrap: wrap;
+        gap: 12px;
       }
+      .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+      .brand-mark {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        background: var(--accent-soft);
+        border: 1px solid var(--accent-line);
+        color: var(--accent);
+        flex-shrink: 0;
+      }
+      .brand-name { font-size: 16px; font-weight: 800; letter-spacing: -0.01em; }
+      .brand-tag { font-size: 12px; color: var(--muted); }
+      .lang { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; }
+      .lang a {
+        color: var(--muted);
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid transparent;
+      }
+      .lang a.active {
+        color: var(--accent-ink);
+        background: var(--accent-soft);
+        border-color: var(--accent-line);
+      }
+
+      /* ---------- layout ---------- */
+      main { max-width: 1020px; margin: 0 auto; padding: 28px 20px 64px; }
+      section { margin-top: 40px; }
+      section:first-of-type { margin-top: 28px; }
+      .section-title {
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin: 0 0 16px;
+      }
+
+      /* ---------- hero ---------- */
+      .hero {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 30px 28px;
+        box-shadow: var(--shadow);
+      }
+      .hero .kicker {
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.24em;
+        color: var(--accent);
+        text-transform: uppercase;
+      }
+      .hero h1 {
+        margin: 12px 0 10px;
+        font-size: 32px;
+        line-height: 1.12;
+        letter-spacing: -0.02em;
+        font-weight: 850;
+      }
+      .hero .lead {
+        margin: 0;
+        font-size: 16px;
+        color: var(--muted);
+        max-width: 720px;
+      }
+
+      /* ---------- path cards ---------- */
+      .grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      }
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 22px;
+        background: var(--surface);
+        box-shadow: var(--shadow);
+        display: flex;
+        flex-direction: column;
+      }
+      .badge {
+        align-self: flex-start;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent-ink);
+        border: 1px solid var(--accent-line);
+      }
+      .card h3 { margin: 14px 0 8px; font-size: 19px; font-weight: 800; letter-spacing: -0.01em; }
+      .card p { margin: 0 0 14px; color: var(--muted); font-size: 14.5px; }
+      .card .where {
+        font-size: 13px;
+        color: var(--fg);
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 12px;
+        margin: 0 0 16px;
+      }
+      .card .spacer { flex: 1; }
+      .cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        align-self: flex-start;
+        padding: 11px 18px;
+        border-radius: 11px;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 700;
+        font-size: 14.5px;
+        border: 1px solid var(--accent-ink);
+      }
+      .cta:hover { background: var(--accent-ink); text-decoration: none; }
+      .cta .arrow { font-weight: 800; }
+
+      /* ---------- signer anchor strip ---------- */
+      .anchor-strip {
+        margin-top: 16px;
+        border: 1px solid var(--accent-line);
+        background: var(--accent-soft);
+        border-radius: 14px;
+        padding: 16px 18px;
+      }
+      .anchor-strip .label {
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--accent-ink);
+      }
+      .anchor-strip .addr {
+        margin-top: 8px;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--accent-ink);
+        word-break: break-all;
+      }
+      .anchor-strip .file { margin-top: 6px; font-size: 13px; }
+
+      /* ---------- steps ---------- */
+      .steps {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+      .step {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--surface);
+        padding: 20px;
+        box-shadow: var(--shadow);
+      }
+      .step .num {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: var(--accent-soft);
+        border: 1px solid var(--accent-line);
+        color: var(--accent-ink);
+        font-weight: 800;
+        font-size: 14px;
+      }
+      .step h4 { margin: 12px 0 6px; font-size: 16px; font-weight: 800; }
+      .step p { margin: 0; color: var(--muted); font-size: 14px; }
+      .note {
+        margin-top: 16px;
+        border-left: 3px solid var(--accent-line);
+        background: var(--surface);
+        border-radius: 0 12px 12px 0;
+        padding: 12px 16px;
+        font-size: 13.5px;
+        color: var(--muted);
+      }
+
+      /* ---------- live log ---------- */
+      .log-grid {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      }
+      .log-card {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 16px;
+        background: var(--surface);
+        box-shadow: var(--shadow);
+      }
+      .log-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+      .log-head b { font-size: 15px; }
       .pill {
-        font-size: 12px;
+        font-size: 11px;
+        font-weight: 700;
         padding: 3px 10px;
         border-radius: 999px;
-        background: rgba(255, 255, 255, 0.06);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        color: var(--muted);
       }
+      .log-card .files { margin-top: 10px; font-size: 13px; }
+      .log-card .stats {
+        margin-top: 12px;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 12px;
+        color: var(--muted);
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .ok { color: var(--ok); }
+      .bad { color: var(--bad); }
+
+      /* ---------- where table ---------- */
+      .where-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: var(--shadow);
+      }
+      .where-table th, .where-table td {
+        text-align: left;
+        padding: 13px 16px;
+        font-size: 14px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      .where-table th { background: var(--surface-2); color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+      .where-table tr:last-child td { border-bottom: none; }
+      .where-table td:first-child { font-weight: 700; white-space: nowrap; }
+
+      /* ---------- advanced ---------- */
+      details.advanced {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--surface);
+        box-shadow: var(--shadow);
+        padding: 4px 22px;
+      }
+      details.advanced > summary {
+        cursor: pointer;
+        list-style: none;
+        padding: 18px 0;
+        font-size: 16px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      details.advanced > summary::-webkit-details-marker { display: none; }
+      details.advanced > summary .chev { color: var(--muted); transition: transform 150ms ease; }
+      details.advanced[open] > summary .chev { transform: rotate(90deg); }
+      .advanced-body { padding: 0 0 22px; }
+      .advanced-body h4 { margin: 18px 0 10px; font-size: 14px; font-weight: 800; }
+      ol.manual { margin: 0; padding-left: 20px; color: var(--muted); font-size: 14px; }
+      ol.manual li { margin-bottom: 8px; }
       textarea {
         width: 100%;
         min-height: 110px;
         border-radius: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        background: rgba(0, 0, 0, 0.2);
-        color: #e8eefc;
-        padding: 10px;
+        border: 1px solid var(--line-strong);
+        background: var(--surface-2);
+        color: var(--fg);
+        padding: 12px;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 12px;
+        resize: vertical;
       }
+      textarea:focus { outline: none; border-color: var(--accent); }
       button {
-        border: 1px solid rgba(255, 255, 255, 0.14);
-        background: rgba(255, 255, 255, 0.06);
-        color: #e8eefc;
-        padding: 9px 12px;
+        border: 1px solid var(--accent-ink);
+        background: var(--accent);
+        color: #fff;
+        padding: 10px 16px;
         border-radius: 10px;
         cursor: pointer;
+        font: inherit;
+        font-weight: 700;
+        font-size: 14px;
       }
-      button:hover {
-        background: rgba(255, 255, 255, 0.1);
-      }
+      button:hover { background: var(--accent-ink); }
       pre {
         white-space: pre-wrap;
         word-break: break-word;
-        background: rgba(0, 0, 0, 0.25);
-        padding: 10px;
+        background: var(--surface-2);
+        padding: 12px;
         border-radius: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid var(--line);
+        font-size: 12.5px;
+      }
+
+      /* ---------- footer ---------- */
+      footer {
+        margin-top: 48px;
+        padding-top: 22px;
+        border-top: 1px solid var(--line);
+        font-size: 13px;
+        color: var(--muted);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 18px;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      @media (max-width: 560px) {
+        .hero { padding: 24px 20px; }
+        .hero h1 { font-size: 26px; }
+        main { padding: 22px 16px 52px; }
       }
     </style>
   </head>
   <body>
-    <header>
-      <div style="max-width: 980px; margin: 0 auto;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
-          <div>
-            <div id="i18n-pageTitle" style="font-size: 20px; font-weight: 700;"></div>
-            <div id="i18n-headerTagline" class="muted" style="margin-top: 6px;"></div>
-            <div class="muted" style="margin-top: 10px;">
-              <span id="i18n-structure"></span>
-              <code>anchors/&lt;gameId&gt;/{seedsets,reveals}.jsonl</code>,
-              <code>rules/&lt;rulesVersion&gt;.json</code>
-            </div>
-          </div>
-          <div>
-            <span class="pill"><a id="langEn" href="?lang=en">EN</a> <span class="muted" style="margin: 0 4px">|</span> <a id="langRu" href="?lang=ru">RU</a></span>
-          </div>
+    <div class="topbar">
+      <div class="topbar-inner">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"></path><path d="M9 12l2 2 4-4"></path></svg>
+          </span>
+          <span>
+            <div class="brand-name">betKarma</div>
+            <div class="brand-tag" id="i18n-brandTag"></div>
+          </span>
         </div>
-        <div id="fairPlayBlock" class="header-intro">
-          <h2 id="i18n-fairPlayTitle"></h2>
-          <p id="i18n-fairPlayStatement"></p>
-          <p><strong id="i18n-fairPlayWhat"></strong> <span id="i18n-fairPlayWhatText"></span></p>
-          <p><strong id="i18n-fairPlayVerify"></strong> <span id="i18n-fairPlayVerifyText"></span></p>
-          <p class="note"><strong id="i18n-fairPlayDisclosure"></strong> <span id="i18n-fairPlayDisclosureText"></span></p>
-        </div>
+        <nav class="lang" aria-label="Language">
+          <a id="langEn" href="?lang=en">EN</a>
+          <a id="langRu" href="?lang=ru">RU</a>
+        </nav>
       </div>
-    </header>
+    </div>
 
     <main>
-      <section id="exchangeBanner" style="margin: 14px 0 22px; padding: 16px; border: 1px solid rgba(110,231,183,0.35); border-radius: 14px; background: rgba(110,231,183,0.06);">
-        <div style="font-weight: 700; color: #c7f9e3; letter-spacing: 0.08em; text-transform: uppercase; font-size: 12px;" id="i18n-exchangeBannerTitle"></div>
-        <p style="margin: 8px 0 6px;" id="i18n-exchangeBannerText"></p>
-        <div class="muted" style="font-size: 13px;">
-          <span id="i18n-exchangeBannerAnchor"></span>
-          <code id="exchangeSignerAnchor">bc1q6etkarmarvej0874ghw396eacejlsy5ygew5yk</code>
-          <span class="muted">·</span>
-          <a id="exchangeAnchorJson" href="exchange/signing-address.json">signing-address.json</a>
+      <section class="hero">
+        <div class="kicker" id="i18n-heroKicker"></div>
+        <h1 id="i18n-heroTitle"></h1>
+        <p class="lead" id="i18n-heroLead"></p>
+      </section>
+
+      <section aria-labelledby="what-title">
+        <h2 class="section-title" id="i18n-whatTitle">What can I verify here?</h2>
+        <div class="grid">
+          <div class="card">
+            <span class="badge" id="i18n-pathCasinoBadge"></span>
+            <h3 id="i18n-pathCasinoTitle"></h3>
+            <p id="i18n-pathCasinoText"></p>
+            <div class="where" id="i18n-pathCasinoWhere"></div>
+            <div class="spacer"></div>
+            <a id="verifierLink" class="cta" href="verify.html">
+              <span id="i18n-pathCasinoCta"></span><span class="arrow" aria-hidden="true">→</span>
+            </a>
+          </div>
+
+          <div class="card">
+            <span class="badge" id="i18n-pathLetterBadge"></span>
+            <h3 id="i18n-pathLetterTitle"></h3>
+            <p id="i18n-pathLetterText"></p>
+            <p class="faint" style="font-size:13px;margin:-6px 0 14px;" id="i18n-pathLetterPairs"></p>
+            <div class="where" id="i18n-pathLetterWhere"></div>
+            <div class="spacer"></div>
+            <a id="letterVerifierLink" class="cta" href="letter.html">
+              <span id="i18n-pathLetterCta"></span><span class="arrow" aria-hidden="true">→</span>
+            </a>
+          </div>
         </div>
-        <div style="margin-top: 10px;">
-          <a id="letterVerifierLink" href="letter.html" class="pill" style="display: inline-block; color: #c7f9e3; border-color: rgba(110,231,183,0.45); background: rgba(110,231,183,0.12);"></a>
+
+        <div class="anchor-strip">
+          <div class="label" id="i18n-signerLabel"></div>
+          <div class="addr" id="exchangeSignerAnchor">bc1q6etkarmarvej0874ghw396eacejlsy5ygew5yk</div>
+          <div class="file">
+            <a id="exchangeAnchorJson" href="exchange/signing-address.json">signing-address.json</a>
+          </div>
         </div>
       </section>
 
-      <h2 style="margin: 22px 0 10px;" id="i18n-sectionVerifier"></h2>
-      <p class="muted">
-        <a id="verifierLink" href=""> </a>
-      </p>
+      <section aria-labelledby="how-title">
+        <h2 class="section-title" id="i18n-howTitle"></h2>
+        <p class="muted" id="i18n-howLead" style="margin:-6px 0 16px;"></p>
+        <div class="steps">
+          <div class="step">
+            <span class="num">1</span>
+            <h4 id="i18n-howStep1Title"></h4>
+            <p id="i18n-howStep1Text"></p>
+          </div>
+          <div class="step">
+            <span class="num">2</span>
+            <h4 id="i18n-howStep2Title"></h4>
+            <p id="i18n-howStep2Text"></p>
+          </div>
+          <div class="step">
+            <span class="num">3</span>
+            <h4 id="i18n-howStep3Title"></h4>
+            <p id="i18n-howStep3Text"></p>
+          </div>
+        </div>
+        <div class="note" id="i18n-howWhy"></div>
+      </section>
 
-      <h2 style="margin: 14px 0 10px;" id="i18n-sectionAnchors"></h2>
-      <div id="games" class="grid"></div>
+      <section aria-labelledby="log-title">
+        <h2 class="section-title" id="i18n-logTitle"></h2>
+        <p class="muted" id="i18n-logLead" style="margin:-6px 0 8px;"></p>
+        <p class="faint" style="font-size:13px;margin:0 0 16px;">
+          <span id="i18n-structure"></span>
+          <code>anchors/&lt;gameId&gt;/{seedsets,reveals}.jsonl</code>,
+          <code>rules/&lt;rulesVersion&gt;.json</code>
+        </p>
+        <div id="games" class="log-grid"></div>
+      </section>
 
-      <h2 style="margin: 22px 0 10px;" id="i18n-sectionHowToVerify"></h2>
-      <ol class="muted">
-        <li id="i18n-step1"></li>
-        <li id="i18n-step2"></li>
-        <li id="i18n-step3"></li>
-        <li id="i18n-step4"></li>
-      </ol>
+      <section aria-labelledby="where-title">
+        <h2 class="section-title" id="i18n-whereTitle"></h2>
+        <table class="where-table">
+          <thead>
+            <tr>
+              <th id="i18n-whereColWhat"></th>
+              <th id="i18n-whereColWhere"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td id="i18n-whereReceiptWhat"></td><td id="i18n-whereReceiptWhere"></td></tr>
+            <tr><td id="i18n-whereLetterWhat"></td><td id="i18n-whereLetterWhere"></td></tr>
+            <tr>
+              <td id="i18n-whereAnchorWhat"></td>
+              <td>
+                <span id="i18n-whereAnchorWhere"></span>
+                <span class="faint"> · </span>
+                <a href="exchange/signing-address.json">signing-address.json</a>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
 
-      <h2 style="margin: 22px 0 10px;" id="i18n-sectionQuickReveal"></h2>
-      <div id="i18n-pasteRevealLine" class="muted" style="margin-bottom: 8px;"></div>
-      <textarea
-        id="revealLine"
-        placeholder='{"ts":"...","gameId":"coinflip38","seedSetId":"...","serverSeedHex":"...","serverSeedHashHex":"..."}'
-      ></textarea>
-      <div style="margin-top: 10px;">
-        <button id="btnVerify"></button>
-      </div>
-      <pre id="verifyOut" class="muted" style="margin-top: 10px;"></pre>
+      <section>
+        <details class="advanced">
+          <summary>
+            <span class="chev" aria-hidden="true">›</span>
+            <span id="i18n-advancedTitle"></span>
+          </summary>
+          <div class="advanced-body">
+            <p class="muted" id="i18n-advancedLead" style="margin-top:0;"></p>
+
+            <h4 id="i18n-sectionHowToVerify"></h4>
+            <ol class="manual">
+              <li id="i18n-step1"></li>
+              <li id="i18n-step2"></li>
+              <li id="i18n-step3"></li>
+              <li id="i18n-step4"></li>
+            </ol>
+
+            <h4 id="i18n-sectionQuickReveal"></h4>
+            <div id="i18n-pasteRevealLine" class="muted" style="margin-bottom: 8px; font-size:14px;"></div>
+            <textarea
+              id="revealLine"
+              spellcheck="false"
+              placeholder='{"ts":"...","gameId":"coinflip38","seedSetId":"...","serverSeedHex":"...","serverSeedHashHex":"..."}'
+            ></textarea>
+            <div style="margin-top: 10px;">
+              <button id="btnVerify"></button>
+            </div>
+            <pre id="verifyOut" class="muted" style="margin-top: 10px;"></pre>
+          </div>
+        </details>
+      </section>
+
+      <footer>
+        <span id="i18n-footerNote"></span>
+        <a id="i18n-footerSource" href="https://github.com/grggoo/betkarma-verify" target="_blank" rel="noreferrer"></a>
+      </footer>
     </main>
 
     <script>
@@ -284,46 +725,81 @@
         var lang = window.__lang || "en";
         if (!T) return;
         var map = {
-          "i18n-pageTitle": "pageTitle",
-          "i18n-headerTagline": "headerTagline",
+          "i18n-brandTag": "brandTag",
+          "i18n-heroKicker": "heroKicker",
+          "i18n-heroTitle": "heroTitle",
+          "i18n-heroLead": "heroLead",
+          "i18n-whatTitle": "whatTitle",
+          "i18n-pathCasinoBadge": "pathCasinoBadge",
+          "i18n-pathCasinoTitle": "pathCasinoTitle",
+          "i18n-pathCasinoText": "pathCasinoText",
+          "i18n-pathCasinoWhere": "pathCasinoWhere",
+          "i18n-pathCasinoCta": "pathCasinoCta",
+          "i18n-pathLetterBadge": "pathLetterBadge",
+          "i18n-pathLetterTitle": "pathLetterTitle",
+          "i18n-pathLetterText": "pathLetterText",
+          "i18n-pathLetterPairs": "pathLetterPairs",
+          "i18n-pathLetterWhere": "pathLetterWhere",
+          "i18n-pathLetterCta": "pathLetterCta",
+          "i18n-signerLabel": "signerLabel",
+          "i18n-howTitle": "howTitle",
+          "i18n-howLead": "howLead",
+          "i18n-howStep1Title": "howStep1Title",
+          "i18n-howStep1Text": "howStep1Text",
+          "i18n-howStep2Title": "howStep2Title",
+          "i18n-howStep2Text": "howStep2Text",
+          "i18n-howStep3Title": "howStep3Title",
+          "i18n-howStep3Text": "howStep3Text",
+          "i18n-howWhy": "howWhy",
+          "i18n-logTitle": "logTitle",
+          "i18n-logLead": "logLead",
           "i18n-structure": "structure",
-          "i18n-exchangeBannerTitle": "exchangeBannerTitle",
-          "i18n-exchangeBannerText": "exchangeBannerText",
-          "i18n-exchangeBannerAnchor": "exchangeBannerAnchor",
-          "i18n-fairPlayTitle": "fairPlayTitle",
-          "i18n-fairPlayStatement": "fairPlayStatement",
-          "i18n-fairPlayWhat": "fairPlayWhat",
-          "i18n-fairPlayWhatText": "fairPlayWhatText",
-          "i18n-fairPlayVerify": "fairPlayVerify",
-          "i18n-fairPlayVerifyText": "fairPlayVerifyText",
-          "i18n-fairPlayDisclosure": "fairPlayDisclosure",
-          "i18n-fairPlayDisclosureText": "fairPlayDisclosureText",
-          "i18n-sectionVerifier": "sectionVerifier",
-          "i18n-sectionAnchors": "sectionAnchors",
+          "i18n-whereTitle": "whereTitle",
+          "i18n-whereColWhat": "whereColWhat",
+          "i18n-whereColWhere": "whereColWhere",
+          "i18n-whereReceiptWhat": "whereReceiptWhat",
+          "i18n-whereReceiptWhere": "whereReceiptWhere",
+          "i18n-whereLetterWhat": "whereLetterWhat",
+          "i18n-whereLetterWhere": "whereLetterWhere",
+          "i18n-whereAnchorWhat": "whereAnchorWhat",
+          "i18n-whereAnchorWhere": "whereAnchorWhere",
+          "i18n-advancedTitle": "advancedTitle",
+          "i18n-advancedLead": "advancedLead",
           "i18n-sectionHowToVerify": "sectionHowToVerify",
           "i18n-step1": "step1",
           "i18n-step2": "step2",
           "i18n-step3": "step3",
           "i18n-step4": "step4",
           "i18n-sectionQuickReveal": "sectionQuickReveal",
-          "i18n-pasteRevealLine": "pasteRevealLine"
+          "i18n-pasteRevealLine": "pasteRevealLine",
+          "i18n-footerNote": "footerNote",
+          "i18n-footerSource": "footerSource"
         };
         Object.keys(map).forEach(function(id) {
           var el = document.getElementById(id);
           if (el) el.textContent = T[map[id]] || "";
         });
         var btn = document.getElementById("btnVerify");
-        if (btn) btn.textContent = T.btnVerify || "Verify reveal hash";
+        if (btn) btn.textContent = T.btnVerify || "Check reveal hash";
+
+        // Carry the active language into the on-page verifiers so they open
+        // in the same language the visitor is reading.
         var verifierLink = document.getElementById("verifierLink");
-        if (verifierLink) {
-          verifierLink.href = "verify.html?lang=" + lang;
-          verifierLink.textContent = T.verifierOpen || "Open verifier (paste a receipt JSON)";
-        }
+        if (verifierLink) verifierLink.href = "verify.html?lang=" + lang;
         var letterVerifierLink = document.getElementById("letterVerifierLink");
-        if (letterVerifierLink) {
-          letterVerifierLink.href = "letter.html?lang=" + lang;
-          letterVerifierLink.textContent = T.exchangeBannerOpen || "Open letter verifier";
+        if (letterVerifierLink) letterVerifierLink.href = "letter.html?lang=" + lang;
+
+        // Language switcher: mark the active one and persist the choice
+        // before navigating so sibling pages stay in the same language.
+        var langEn = document.getElementById("langEn");
+        var langRu = document.getElementById("langRu");
+        if (langEn) langEn.className = lang === "en" ? "active" : "";
+        if (langRu) langRu.className = lang === "ru" ? "active" : "";
+        function persist(code) {
+          return function () { try { localStorage.setItem("bk_verify_lang", code); } catch (e) {} };
         }
+        if (langEn) langEn.addEventListener("click", persist("en"));
+        if (langRu) langRu.addEventListener("click", persist("ru"));
       })();
 
       const GAMES = [
@@ -368,19 +844,17 @@
           const seedsetsUrl = `anchors/${g.id}/seedsets.jsonl`;
           const revealsUrl = `anchors/${g.id}/reveals.jsonl`;
 
-          const card = el("div", { class: "card" }, [
-            el("div", { class: "row" }, [
+          const card = el("div", { class: "log-card" }, [
+            el("div", { class: "log-head" }, [
               el("div", { html: `<b>${g.title}</b>` }),
               el("div", { class: "pill" }, ["anchors"]),
             ]),
-            el("div", { class: "muted", style: "margin-top:8px;" }, [
-              el("div", {}, [
-                el("a", { href: seedsetsUrl }, ["seedsets.jsonl"]),
-                document.createTextNode(" | "),
-                el("a", { href: revealsUrl }, ["reveals.jsonl"]),
-              ]),
+            el("div", { class: "files" }, [
+              el("a", { href: seedsetsUrl }, ["seedsets.jsonl"]),
+              document.createTextNode(" · "),
+              el("a", { href: revealsUrl }, ["reveals.jsonl"]),
             ]),
-            el("div", { class: "muted", style: "margin-top:10px;" }, [window.__T ? window.__T.loading : "Loading..."]),
+            el("div", { class: "stats" }, [window.__T ? window.__T.loading : "Loading..."]),
           ]);
 
           host.appendChild(card);
@@ -399,7 +873,7 @@
               lines.push(`latest seedSetId: ${lastCommit.seedSetId}`);
               lines.push(`latest hash: ${shortHex(lastCommit.serverSeedHashHex)}`);
               lines.push(`latest ts: ${lastCommit.ts}`);
-              lines.push(`revealed: ${lastCommitReveal ? (T.revealedYes || "YES") : (T.revealedNo || "NO")}`);
+              lines.push(`latest seedset: ${lastCommitReveal ? (T.revealedYes || "revealed") : (T.revealedNo || "awaiting reveal")}`);
             } else {
               lines.push(T.noCommits || "No commits yet for this game.");
             }
