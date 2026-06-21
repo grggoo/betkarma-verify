@@ -399,6 +399,14 @@
       }
 
       // ===== COINFLIP38 =====
+      // Payout multipliers keyed by rulesVersion (mirrors the server registry
+      // src/server/games/coinflip38/rules.ts). Each historical receipt verifies
+      // against the exact version it was played under. SIDE = HEADS/TAILS.
+      const COINFLIP_MULT_BY_VERSION = {
+        "coinflip38-american-v1": { SIDE: 20000n, EDGE: 180000n },
+        "coinflip38-american-v2": { SIDE: 20689n, EDGE: 186200n },
+      };
+
       async function computeCoinflip38(receipt, serverSeedHex) {
         const req = {
           rngVersion: receipt.rngVersion,
@@ -425,7 +433,9 @@
 
         const choice = receipt?.params?.choice;
         const stakeSats = toBigIntSats(receipt?.params?.stakeSats, "params.stakeSats");
-        const mult = outcome === "EDGE" ? 180000n : 20000n;
+        const cfRules = COINFLIP_MULT_BY_VERSION[receipt.rulesVersion];
+        if (!cfRules) throw new Error(`Unknown coinflip38 rulesVersion: ${receipt.rulesVersion}`);
+        const mult = outcome === "EDGE" ? cfRules.EDGE : cfRules.SIDE;
         const payoutSats = choice === outcome ? (stakeSats * mult) / 10000n : 0n;
 
         return { slot, outcome, multiplierBps: Number(mult), payoutSats };
@@ -529,6 +539,9 @@
         return hand.twoPairOrBetter || hand.sameColor;
       }
 
+      // NOTE: for Karma Poker this verifier recomputes the dealt cards + hand
+      // evaluation (not the payout), so these multipliers are informational only
+      // and are not asserted against the receipt.
       const MARKET_BPS = {
         NO_ACE: 14400,
         NO_POKER_COMBO: 18900,
@@ -557,6 +570,9 @@
       }
 
       // ===== KARMA LADDER =====
+      // NOTE: for Karma Ladder this verifier recomputes the shuffle (not the
+      // payout/rope fees), so the constants below are informational only and are
+      // not asserted against the receipt.
       const LADDER_DECK = ["K", "A", "R", "M", "A"];
       const MAIN_PAYOUT_BPS = { 1: 21000, 2: 12500, 3: 10500, 4: 3500 };
       const ROPE_FEE_P = { n1: 8290n, n2: 14508n, n3: 24870n, n4: 62176n };
@@ -628,11 +644,10 @@
       }
 
       // ===== DICE =====
-      const DICE_MARKET_BPS = {
-        LOW: 22800,
-        HIGH: 22800,
-        EVEN: 19000,
-        PAIR: 57000,
+      // Payout multipliers keyed by rulesVersion (mirrors src/server/games/dice/rules.ts).
+      const DICE_MARKET_BPS_BY_VERSION = {
+        "dice-2d6-4market-v1": { LOW: 22800, HIGH: 22800, EVEN: 19000, PAIR: 57000 },
+        "dice-2d6-4market-v2": { LOW: 23520, HIGH: 23520, EVEN: 19600, PAIR: 58800 },
       };
 
       function outcomeTagsForDice(die1, die2) {
@@ -664,7 +679,9 @@
         const market = String(receipt?.params?.market ?? "");
         const stakeSats = toBigIntSats(receipt?.params?.stakeSats, "params.stakeSats");
         const win = outcomeTags.includes(market);
-        const multiplierBps = DICE_MARKET_BPS[market];
+        const diceBps = DICE_MARKET_BPS_BY_VERSION[receipt.rulesVersion];
+        if (!diceBps) throw new Error(`Unknown dice rulesVersion: ${receipt.rulesVersion}`);
+        const multiplierBps = diceBps[market];
         if (!Number.isInteger(multiplierBps)) {
           throw new Error(`Unknown dice market: ${market}`);
         }
