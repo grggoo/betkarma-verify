@@ -382,9 +382,10 @@
       <section class="card">
         <h2 id="t-section-algo">How it works</h2>
         <p class="hint" id="t-algo-intro">
-          The letter is a PGP-cleartext-style envelope. Anyone with a desktop
-          wallet (Electrum, Sparrow, Bitcoin Core 25+) can verify it manually
-          using the same five steps this page runs in your browser.
+          The letter is a standard Bitcoin Signed Message (BIP-137). You can
+          verify it here, in any desktop wallet (Electrum, Sparrow, Bitcoin
+          Core 25+), or with any online checker such as bitref.com or
+          bitlist.co.
         </p>
         <ol class="steps">
           <li><span class="step-num">1</span><span id="t-step-1"></span></li>
@@ -427,9 +428,21 @@
         try { localStorage.setItem("bk_verify_lang", lang); } catch (e) {}
 
         var ANCHOR = "bc1q6etkarmarvej0874ghw396eacejlsy5ygew5yk";
-        var BEGIN = "-----BEGIN BETKARMA LETTER OF GUARANTEE-----";
-        var BEGIN_SIG = "-----BEGIN BETKARMA SIGNATURE-----";
-        var END = "-----END BETKARMA LETTER OF GUARANTEE-----";
+        // Canonical Bitcoin Signed Message armor (Electrum / Sparrow /
+        // bitref / bitlist compatible) — what every letter issued from
+        // 2026-06 onward uses.
+        var CANON = {
+          begin: "-----BEGIN BITCOIN SIGNED MESSAGE-----",
+          sig: "-----BEGIN BITCOIN SIGNATURE-----",
+          end: "-----END BITCOIN SIGNATURE-----",
+        };
+        // Legacy custom envelope — still accepted so .txt files saved
+        // before the format change keep verifying.
+        var LEGACY = {
+          begin: "-----BEGIN BETKARMA LETTER OF GUARANTEE-----",
+          sig: "-----BEGIN BETKARMA SIGNATURE-----",
+          end: "-----END BETKARMA LETTER OF GUARANTEE-----",
+        };
 
         var T = {
           en: {
@@ -440,7 +453,7 @@
             inputHint:
               "Use the Download .txt button on the order page to get the full letter, then paste it below or drop the file.",
             inputPlaceholder:
-              "Paste the full letter here, including the -----BEGIN BETKARMA LETTER OF GUARANTEE----- and -----END BETKARMA LETTER OF GUARANTEE----- markers.",
+              "Paste the full letter here, including the -----BEGIN BITCOIN SIGNED MESSAGE----- and -----END BITCOIN SIGNATURE----- markers.",
             uploadHint: "or upload a .txt file:",
             sectionVerify: "2 — verify",
             verifyBtn: "Verify letter",
@@ -452,17 +465,17 @@
             anchorFileLabel: "Anchor file (append-only in this repo):",
             sectionAlgo: "How it works",
             algoIntro:
-              "The letter is a PGP-cleartext-style envelope. Anyone with a desktop wallet (Electrum, Sparrow, Bitcoin Core 25+) can verify it manually using the same five steps this page runs in your browser.",
+              "The letter is a standard Bitcoin Signed Message (BIP-137). You can verify it here, in any desktop wallet (Electrum, Sparrow, Bitcoin Core 25+), or with any online checker such as bitref.com or bitlist.co — the same steps this page runs in your browser.",
             step1:
-              "Open the letter in any text viewer. The body between the Hash header and the SIGNATURE marker is exactly the human-readable text that was signed (UTF-8, LF line endings, no trailing newline).",
+              "Open the letter in any text viewer. The text between -----BEGIN BITCOIN SIGNED MESSAGE----- and -----BEGIN BITCOIN SIGNATURE----- is exactly the message that was signed (UTF-8, LF line endings, no trailing newline).",
             step2:
-              "Read the SIGNATURE block — it carries the Address (BTC P2WPKH), Algorithm, PayloadSha256 (hex), and Signature (base64).",
+              "Read the signature block — two lines: the signer address (BTC P2WPKH bech32) and the signature (base64).",
             step3:
-              "Compute SHA-256 of the body text. The hex digest must match the PayloadSha256 line — that proves the body wasn't tampered with after signing.",
+              "Optionally compute SHA-256 of the message for your own records. The signature already covers these exact bytes, so a valid signature is the real proof of integrity.",
             step4:
-              "Run “verify message” with three inputs: address, body text, signature. Any BIP-137 wallet works; this page ships its own implementation for convenience.",
+              "Run “verify message” with three inputs: address, message, signature. Any BIP-137 wallet or online verifier works; this page ships its own implementation for convenience.",
             step5:
-              "Confirm the Address line matches the trust anchor below — if it does and the signature verifies, the letter is authentic.",
+              "Confirm the signer address matches the trust anchor below — if it does and the signature verifies, the letter is authentic.",
             footer:
               "Open-source verifier. Algorithm: BIP-137 (Bitcoin signed message) for P2WPKH addresses.",
             source: "View source",
@@ -509,7 +522,7 @@
             inputHint:
               "Нажмите Download .txt на странице ордера, получите полный текст письма и вставьте сюда (либо перетащите файл).",
             inputPlaceholder:
-              "Вставьте сюда весь текст письма, включая маркеры -----BEGIN BETKARMA LETTER OF GUARANTEE----- и -----END BETKARMA LETTER OF GUARANTEE-----.",
+              "Вставьте сюда весь текст письма, включая маркеры -----BEGIN BITCOIN SIGNED MESSAGE----- и -----END BITCOIN SIGNATURE-----.",
             uploadHint: "или загрузите .txt файл:",
             sectionVerify: "2 — проверка",
             verifyBtn: "Проверить письмо",
@@ -521,17 +534,17 @@
             anchorFileLabel: "Файл якоря (append-only в этом репозитории):",
             sectionAlgo: "Как это работает",
             algoIntro:
-              "Письмо — это конверт в стиле PGP cleartext. Любой, у кого есть Electrum, Sparrow или Bitcoin Core 25+, может проверить его вручную теми же пятью шагами, которые эта страница делает у вас в браузере.",
+              "Письмо — это стандартное Bitcoin Signed Message (BIP-137). Его можно проверить здесь, в любом кошельке (Electrum, Sparrow, Bitcoin Core 25+) или любым онлайн-сервисом вроде bitref.com или bitlist.co — теми же шагами, которые эта страница делает у вас в браузере.",
             step1:
-              "Откройте письмо в любом текстовом редакторе. Тело между Hash-заголовком и маркером SIGNATURE — это в точности тот текст (UTF-8, LF, без хвостового перевода строки), который был подписан.",
+              "Откройте письмо в любом текстовом редакторе. Текст между -----BEGIN BITCOIN SIGNED MESSAGE----- и -----BEGIN BITCOIN SIGNATURE----- — это в точности то сообщение (UTF-8, LF, без хвостового перевода строки), которое было подписано.",
             step2:
-              "Прочитайте блок SIGNATURE: Address (BTC P2WPKH), Algorithm, PayloadSha256 (hex), Signature (base64).",
+              "Прочитайте блок подписи — две строки: адрес подписанта (BTC P2WPKH bech32) и подпись (base64).",
             step3:
-              "Посчитайте SHA-256 тела письма. Должно совпасть со строкой PayloadSha256 — это доказывает, что тело не подменили после подписания.",
+              "При желании посчитайте SHA-256 сообщения для себя. Подпись уже покрывает ровно эти байты, поэтому именно валидная подпись и есть доказательство целостности.",
             step4:
-              "Запустите «verify message» с тремя входами: адрес, тело, подпись. Подходит любой BIP-137-совместимый кошелёк; на этой странице — встроенная реализация для удобства.",
+              "Запустите «verify message» с тремя входами: адрес, сообщение, подпись. Подходит любой BIP-137-совместимый кошелёк или онлайн-сервис; на этой странице — встроенная реализация для удобства.",
             step5:
-              "Убедитесь, что строка Address совпадает с точкой доверия ниже — если совпадает и подпись валидна, письмо подлинное.",
+              "Убедитесь, что адрес подписанта совпадает с точкой доверия ниже — если совпадает и подпись валидна, письмо подлинное.",
             footer:
               "Open-source верификатор. Алгоритм: BIP-137 (Bitcoin signed message) для P2WPKH-адресов.",
             source: "Открыть исходник",
@@ -637,9 +650,17 @@
           // Normalise CRLF *and* lone CR (old-Mac / mangled paste) to LF
           // so split() yields real lines instead of one giant line.
           var lines = clean.replace(/\r\n?/g, "\n").split("\n");
-          var idxBegin = findMarkerLine(lines, BEGIN);
-          var idxSig = findMarkerLine(lines, BEGIN_SIG);
-          var idxEnd = findMarkerLine(lines, END);
+
+          // Pick the format by which BEGIN marker is present. Canonical
+          // first — that is what current letters use.
+          var fmt = null, mode = "";
+          if (findMarkerLine(lines, CANON.begin) >= 0) { fmt = CANON; mode = "canonical"; }
+          else if (findMarkerLine(lines, LEGACY.begin) >= 0) { fmt = LEGACY; mode = "legacy"; }
+          if (!fmt) throw new Error("PARSE_FAILED:missing marker(s): BEGIN");
+
+          var idxBegin = findMarkerLine(lines, fmt.begin);
+          var idxSig = findMarkerLine(lines, fmt.sig);
+          var idxEnd = findMarkerLine(lines, fmt.end);
           if (idxBegin < 0 || idxSig <= idxBegin || idxEnd <= idxSig) {
             // Name the offender so the failure is debuggable at a glance.
             var missing = [];
@@ -652,24 +673,54 @@
                 : "PARSE_FAILED:markers out of order"
             );
           }
-          var bodyStart = idxBegin + 1;
-          while (
-            bodyStart < idxSig &&
-            /^[A-Za-z][A-Za-z0-9 _-]*:\s/.test(lines[bodyStart])
-          ) {
-            bodyStart += 1;
+
+          var address = "", signature = "", declaredSha = "", body = "";
+
+          if (mode === "canonical") {
+            // Message region is byte-identical to the signed body: every
+            // line strictly between BEGIN and BEGIN SIGNATURE.
+            body = lines.slice(idxBegin + 1, idxSig).join("\n");
+            // Signature block = address line then signature line (bare,
+            // no labels). Ignore blank lines that some tools insert.
+            var sb = [];
+            var raw = lines.slice(idxSig + 1, idxEnd);
+            for (var j = 0; j < raw.length; j += 1) {
+              if (raw[j].trim() !== "") sb.push(raw[j].trim());
+            }
+            address = sb[0] || "";
+            signature = sb[1] || "";
+          } else {
+            // Legacy: skip the `Hash: SHA-256` header + one blank line,
+            // then parse the labelled signature block.
+            var bodyStart = idxBegin + 1;
+            while (
+              bodyStart < idxSig &&
+              /^[A-Za-z][A-Za-z0-9 _-]*:\s/.test(lines[bodyStart])
+            ) {
+              bodyStart += 1;
+            }
+            if (bodyStart < idxSig && lines[bodyStart] === "") {
+              bodyStart += 1;
+            }
+            body = lines.slice(bodyStart, idxSig).join("\n");
+            var fields = {};
+            var sigLines = lines.slice(idxSig + 1, idxEnd);
+            for (var i = 0; i < sigLines.length; i += 1) {
+              var m = /^([A-Za-z0-9_]+):\s*(.+)$/.exec(sigLines[i]);
+              if (m) fields[m[1].toLowerCase()] = m[2].trim();
+            }
+            address = fields.address || "";
+            signature = fields.signature || "";
+            declaredSha = (fields.payloadsha256 || "").toLowerCase();
           }
-          if (bodyStart < idxSig && lines[bodyStart] === "") {
-            bodyStart += 1;
-          }
-          var body = lines.slice(bodyStart, idxSig).join("\n");
-          var fields = {};
-          var sigLines = lines.slice(idxSig + 1, idxEnd);
-          for (var i = 0; i < sigLines.length; i += 1) {
-            var m = /^([A-Za-z0-9_]+):\s*(.+)$/.exec(sigLines[i]);
-            if (m) fields[m[1].toLowerCase()] = m[2].trim();
-          }
-          return { body: body, fields: fields };
+
+          return {
+            body: body,
+            mode: mode,
+            address: address.trim(),
+            signature: signature.trim(),
+            declaredSha: declaredSha,
+          };
         }
 
         // --------- lazy crypto loader ----------
@@ -843,10 +894,9 @@
             return;
           }
           var body = parsed.body;
-          var fields = parsed.fields;
 
           // ---- preview short-circuit ----
-          if ((fields.signature || "").toUpperCase() === "UNSIGNED-PREVIEW") {
+          if ((parsed.signature || "").toUpperCase() === "UNSIGNED-PREVIEW") {
             renderResult({ status: "preview" });
             return;
           }
@@ -870,17 +920,21 @@
 
           btn.textContent = t.verifying;
 
-          var declaredAddress = (fields.address || "").trim();
+          var declaredAddress = parsed.address;
           var anchorOk = declaredAddress === ANCHOR;
 
           var computedSha = toHex(lib.sha256(utf8(body)));
-          var declaredSha = (fields.payloadsha256 || "").toLowerCase();
+          var declaredSha = parsed.declaredSha;
+          // The signature already covers the exact body bytes, so SHA is a
+          // belt-and-braces check only meaningful for legacy letters that
+          // printed a PayloadSha256 line. Canonical letters don't, so it is
+          // computed for display but not part of the pass/fail verdict.
           var shaOk = !!declaredSha && computedSha === declaredSha;
 
           var sigOk = false;
           var recoveredAddress = "";
           try {
-            recoveredAddress = recoverP2WPKHAddress(body, fields.signature, lib);
+            recoveredAddress = recoverP2WPKHAddress(body, parsed.signature, lib);
             sigOk = recoveredAddress === declaredAddress;
           } catch (_e) {
             sigOk = false;
@@ -888,9 +942,11 @@
 
           var checks = [
             { ok: anchorOk, text: anchorOk ? t.anchorMatch : t.mismatchAnchor },
-            { ok: shaOk,    text: shaOk    ? t.shaMatch    : t.shaMismatch },
-            { ok: sigOk,    text: sigOk    ? t.sigValid    : t.sigInvalid },
           ];
+          if (declaredSha) {
+            checks.push({ ok: shaOk, text: shaOk ? t.shaMatch : t.shaMismatch });
+          }
+          checks.push({ ok: sigOk, text: sigOk ? t.sigValid : t.sigInvalid });
           var allOk = checks.every(function (c) { return c.ok; });
 
           renderResult({
@@ -912,34 +968,27 @@
           var inputEl = document.getElementById("input");
           var body = [
             "betKarma Exchange — Letter of Guarantee",
-            "This letter is signed by the betKarma public Bitcoin address published at",
-            "  https://betkarma.art/letter-of-guarantee",
-            "Anyone can verify it offline in any BIP-137 wallet, or online at",
-            "  https://grggoo.github.io/betkarma-verify/letter.html",
+            "This letter is signed with the betKarma public Bitcoin signing address listed in the signature block below.",
             "",
             "Service:            betKarma",
             "Clearnet:           https://betkarma.art",
             "Onion:              http://betkarmaf7h5ubytt73ealijl7fiquooiysklmcbuk66zdux6x6musid.onion",
             "Issuer Page:        https://betkarma.art/letter-of-guarantee",
             "Verifier:           https://grggoo.github.io/betkarma-verify/letter.html",
-            "",
-            "Swap:               BTC -> XMR",
+            "Swap:               USDT (TRON) -> XMR",
             "Status:             DEMO-FAILING",
             "Order ID:           demo-failing-letter",
             "",
             "Algorithm:          bitcoin-message-bip137-p2wpkh",
+            "Issuer:             betkarma.art",
           ].join("\n");
           inputEl.value = [
-            BEGIN,
-            "Hash: SHA-256",
-            "",
+            CANON.begin,
             body,
-            BEGIN_SIG,
-            "Address:        bc1q6etkarmarvej0874ghw396eacejlsy5ygew5yk",
-            "Algorithm:      bitcoin-message-bip137-p2wpkh",
-            "PayloadSha256:  0000000000000000000000000000000000000000000000000000000000000000",
-            "Signature:      AAAA",
-            END,
+            CANON.sig,
+            "bc1q6etkarmarvej0874ghw396eacejlsy5ygew5yk",
+            "AAAA",
+            CANON.end,
             "",
           ].join("\n");
         }
