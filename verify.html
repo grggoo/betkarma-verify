@@ -47,6 +47,11 @@
             handCategory: "Hand category",
             computedShuffle: "Computed shuffle",
             computedDice: "Computed dice",
+            jackpotTier: "Double-EDGE jackpot",
+            jackpotPaid: "EDGE_STREAK2 paid (armed by previous EDGE win",
+            jackpotArmedNoHit: "armed, but this bet did not hit EDGE",
+            jackpotNotArmed: "not armed (base tier applies)",
+            jackpotCoverage: "jackpot tier covered",
             notImplemented: "Game math verification not implemented yet for"
           },
           ru: {
@@ -76,6 +81,11 @@
             handCategory: "Категория руки",
             computedShuffle: "Вычисленная перестановка",
             computedDice: "Вычисленные кости",
+            jackpotTier: "Джекпот двойного EDGE",
+            jackpotPaid: "выплачен EDGE_STREAK2 (заряжен предыдущим выигрышем EDGE",
+            jackpotArmedNoHit: "заряжен, но эта ставка не выбила EDGE",
+            jackpotNotArmed: "не заряжен (действует базовый коэффициент)",
+            jackpotCoverage: "джекпот покрыл",
             notImplemented: "Верификация математики игры пока не реализована для"
           }
         };
@@ -402,9 +412,18 @@
       // Payout multipliers keyed by rulesVersion (mirrors the server registry
       // src/server/games/coinflip38/rules.ts). Each historical receipt verifies
       // against the exact version it was played under. SIDE = HEADS/TAILS.
+      // v3 adds the double-EDGE jackpot tier EDGE_STREAK2, applied when
+      // receipt.params.jackpotArmed === true (the server armed this bet because
+      // the player's previous coinflip38 action was a pure-cash EDGE win at the
+      // base tier under the same rules). The tier covers min(prevStake, stake):
+      //   payout = (EDGE * stake + (EDGE_STREAK2 - EDGE) * min(prevStake, stake)) / 10000
+      // The arming fact and the previous stake are part of the signed receipt;
+      // result.edgeStreak (0|1|2) records the tier paid, result.jackpotBaseSats
+      // the covered portion.
       const COINFLIP_MULT_BY_VERSION = {
         "coinflip38-american-v1": { SIDE: 20000n, EDGE: 180000n },
         "coinflip38-american-v2": { SIDE: 20689n, EDGE: 186200n },
+        "coinflip38-american-v3": { SIDE: 20689n, EDGE: 166200n, EDGE_STREAK2: 566200n },
       };
 
       async function computeCoinflip38(receipt, serverSeedHex) {
@@ -435,10 +454,36 @@
         const stakeSats = toBigIntSats(receipt?.params?.stakeSats, "params.stakeSats");
         const cfRules = COINFLIP_MULT_BY_VERSION[receipt.rulesVersion];
         if (!cfRules) throw new Error(`Unknown coinflip38 rulesVersion: ${receipt.rulesVersion}`);
-        const mult = outcome === "EDGE" ? cfRules.EDGE : cfRules.SIDE;
-        const payoutSats = choice === outcome ? (stakeSats * mult) / 10000n : 0n;
+        const win = choice === outcome;
+        const hasJackpot = typeof cfRules.EDGE_STREAK2 === "bigint";
+        const jackpotArmed = hasJackpot && receipt?.params?.jackpotArmed === true;
+        let mult = outcome === "EDGE" ? cfRules.EDGE : cfRules.SIDE;
+        let edgeStreak = 0;
+        let jackpotBaseSats = null;
+        let payoutSats = win ? (stakeSats * mult) / 10000n : 0n;
+        if (win && outcome === "EDGE") {
+          if (jackpotArmed) {
+            const prevStake = toBigIntSats(receipt?.params?.jackpotPrevStakeSats, "params.jackpotPrevStakeSats");
+            jackpotBaseSats = prevStake < stakeSats ? prevStake : stakeSats;
+            mult = cfRules.EDGE_STREAK2;
+            edgeStreak = 2;
+            payoutSats = (stakeSats * cfRules.EDGE + jackpotBaseSats * (cfRules.EDGE_STREAK2 - cfRules.EDGE)) / 10000n;
+          } else {
+            edgeStreak = 1;
+          }
+        }
 
-        return { slot, outcome, multiplierBps: Number(mult), payoutSats };
+        return {
+          slot,
+          outcome,
+          multiplierBps: Number(mult),
+          payoutSats,
+          hasJackpot,
+          jackpotArmed,
+          edgeStreak,
+          jackpotBaseSats,
+          stakeSats,
+        };
       }
 
       // ===== KARMA POKER =====
@@ -786,8 +831,36 @@
           assert(String(r.outcome) === expected.outcome, "outcome mismatch");
           assert(toInt(r.multiplierBps, "result.multiplierBps") === expected.multiplierBps, "multiplier mismatch");
           assert(payoutSatsReceipt === expected.payoutSats, "payout mismatch");
+          if (expected.hasJackpot) {
+            assert(toInt(r.edgeStreak, "result.edgeStreak") === expected.edgeStreak, "edgeStreak mismatch");
+            if (expected.jackpotArmed) {
+              assert(
+                typeof receipt.params.jackpotPrevEventId === "string" && receipt.params.jackpotPrevEventId.length > 0,
+                "jackpotPrevEventId missing on armed receipt"
+              );
+            }
+            if (expected.edgeStreak === 2) {
+              assert(
+                toBigIntSats(r.jackpotBaseSats, "result.jackpotBaseSats") === expected.jackpotBaseSats,
+                "jackpotBaseSats mismatch"
+              );
+            }
+          }
 
           log(`${T.computedSlot || "Computed slot"}=${expected.slot}, ${T.outcome || "outcome"}=${expected.outcome}`);
+          if (expected.hasJackpot) {
+            log(
+              `${T.jackpotTier || "Jackpot"}: ${
+                expected.edgeStreak === 2
+                  ? `${T.jackpotPaid || "EDGE_STREAK2 paid (armed by previous EDGE win"} ${receipt.params.jackpotPrevEventId}); ${
+                      T.jackpotCoverage || "covered"
+                    } ${expected.jackpotBaseSats} / ${expected.stakeSats} sats`
+                  : expected.jackpotArmed
+                    ? T.jackpotArmedNoHit || "armed, but this bet did not hit EDGE"
+                    : T.jackpotNotArmed || "not armed (base tier applies)"
+              }`
+            );
+          }
           return;
         }
 
